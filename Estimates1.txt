@@ -1,0 +1,770 @@
+proc printto log  ="&drive.\Coastal and Ocean Socioeconomics\ENOW\Data_Production\ACS_BlockGroup\ACS_Output\Estimates.log" new;
+run;
+
+
+* This is the file that contains the fields we want to keep for output;
+
+data cols;
+  infile "&geo_ref/COLUMNS.txt";
+  input col $10.;
+run;
+
+proc sort;
+  by col;
+run;
+
+* This is the ACS Reference file which lists the Table ID, Sequence Number, Line Number for appropriate measures of data;
+* Example Below;
+***************************************************;
+* B00001_001                                       ;
+* B01001_002                                       ;
+* B01001_020                                       ;
+***************************************************;
+* These are the values in Columns Text File        ;
+* When we read the SequenceNumberTable below we    ;
+* select those rows where the TABLEID and the Line ;
+* Number (ORDER) Concatenation is in the one of the;
+* values of the Columns Text File so we limit the  ;
+* number of rows we need                           ;
+***************************************************;
+
+data table (keep=col seq);
+  set ref.SequenceNumberTable&y;
+  col=left(trim(tblid))||'_'||put(order,z3.);
+run;
+
+proc sort;
+  by col;
+run;
+
+***************************************************;
+* Select those values in the Reference File that   ;
+* are in the COLUMNS Text File                     ;
+* Create SEQNUM - No Leading Zeros in value of SEQ ;
+***************************************************;
+
+data col_seq;
+  merge cols (in=a) table (in=b);
+  by col;
+  if a;
+  seqnum = seq * 1;
+run;
+
+***************************************************;
+* Select Non-Duplicate SEQ variable from Reference ;
+***************************************************;
+
+proc sql noprint;
+  create table seqs_x as select distinct seq from col_seq order by seq;
+quit;
+run;
+
+***************************************************;
+* Put Total Count of NON-Duplicate SEQ values into ;
+* a Macro Variable - SNOBS this will be the number ;
+* of observations in the table from above SEQ_X    ;
+***************************************************;
+
+data _null_;
+   set seqs_x nobs=cnt;
+   call symput('snobs',compress(cnt));
+run;
+ 
+***************************************************;
+* Create Macro Variables from SS1 TO SS (whatever  ;
+* is in the Count Value above (SNOBS))             ;
+* EX.  B00001_001 is the first value selected  from;
+* the Reference File we create COL_SEQ - it has a  ;
+* SEQ value of 0001, so the Macro Variable SS1 will;
+* contain a value of 0001                          ;
+***************************************************;
+
+proc sql noprint;
+   select distinct seq into :ss1 - :ss&snobs from seqs_x;
+quit;
+run;
+
+%macro seqtest;
+
+
+***************************************************;
+* In the SAS Program that runs before this one     ;
+* there is a Macro Variable that gets created LZ   ;
+* if substr(memname,4,1) = '0' then LZ else NZ     ;
+* So if the file name has leading zeros use SEQ    ;
+* - which has leading zeros                        ;
+* - else use SEQNUM which is numeric no leading    ;
+* zeros                                            ;
+* LEADING ZERO Below:                              ;
+***************************************************;
+
+%if &leadz = LZ %then %do;
+
+    *********************************  THIS SHOULD BE FOR YEARS WHERE THE SEQUENCE FILES HAVE LEADING ZEROS IN NAME *************************;
+    proc sql noprint;
+       create table seqs as select distinct seq from col_seq order by seq;
+       quit;
+    run;
+
+    data _null_;
+       set seqs nobs=cnt;
+       call symput('seqsnobs',compress(cnt));
+    run;
+ 
+    proc sql noprint;
+       select distinct seq into :s1 - :s&seqsnobs from seqs;
+       quit;
+    run;
+
+%end;
+
+***************************************************;
+* In the SAS Program that runs before this one     ;
+* there is a Macro Variable that gets created LZ   ;
+* if substr(memname,4,1) = '0' then LZ else NZ     ;
+* So if the file name has leading zeros use SEQ    ;
+* - which has leading zeros                        ;
+* - else use SEQNUM which is numeric no leading    ;
+* zeros                                            ;
+* NO LEADING ZERO Below:                           ;
+***************************************************;
+
+%else %do;
+
+    *********************************  THIS SHOULD BE FOR YEARS WHERE THE SEQUENCE FILES DO NOT HAVE LEADING ZEROS IN NAME *************************;
+    proc sql noprint;
+       create table seqs  as select distinct seqnum from col_seq order by seqnum;
+       quit;
+    run;
+
+    data _null_;
+       set seqs nobs=cnt;
+       call symput('seqsnobs',compress(cnt));
+    run;
+
+    proc sql noprint;
+       select distinct seqnum into :s1 - :s&seqsnobs from seqs;
+       quit;
+    run;
+
+	 
+%end;
+
+
+%mend seqtest;
+%seqtest;
+
+***************************************************;
+* Create table - COLS that contains all the unique ;
+* values of the COL ex  B00001_001                 ;
+***************************************************;
+
+proc sql noprint;
+  create table cols as select distinct col from col_seq order by col;
+  quit;
+run;
+
+***************************************************;
+* Create MACRO VARIBLE COLS that contains all the  ;
+* unique values of COL ex  B00001_001 separated by ;
+* a blank                                          ;
+***************************************************;
+
+proc sql noprint;
+  select col into :cols separated by ' ' from cols;
+  quit;
+run;
+
+***************************************************;
+* OUTER LOOP                                       ;
+***************************************************;
+* In the macro GEOFILE - Loop through this macro x ;
+* number of times bases on value of END_ST Macro   ;
+* which is set in the DRIVER Program should be 52  ;
+* for all states - so 1 time for each state select ;
+***************************************************;
+
+***************************************************;
+* INNER LOOP                                       ;
+***************************************************;
+* In the macro GEOFILE - Loop through this macro x ;
+* number of times bases on value of SEQSNOBS       ;
+* Macro Variable is the unique number of SEQ       ;
+* - so for 52 states would loop X number of times  ;
+* X 52, so for 4 count of SEQ would be 208 total   ;
+***************************************************;
+
+%macro geofile;
+
+%do j=1 %to &end_st;
+    
+  %do r=1 %to &seqsnobs;
+
+     %if &leadz = LZ %then %do;
+
+	    proc sql noprint;
+	       select col into :seqcols separated by ' ' from col_seq
+		   where seq = "&&s&r";
+		   quit;
+	    run;
+
+	 %end;
+
+	 %else %do;
+
+        proc sql noprint;
+	       select col into :seqcols separated by ' ' from col_seq
+		   where seq = "&&ss&r";
+		   quit;
+	    run;
+
+	 %end;
+
+***************************************************;
+* The Dataset below ALLSTATES is created in the SAS;
+* Program GEODATA.SAS - The STATE Variable contains;
+* all of the states, such as ak, al, ar, az, etc.  ;
+* - so for 52 states would select the state based  ;
+* on the value of the N Macro Variable,            ;
+* The N Macro variable is created in the DRIVER PGM;
+* So N1 Macro variable = ak, N2 = al, N3 = ar, etc.;
+* The Value of STATERANGE within each state is the ;
+* same for each line in the State, so we de-dupe to;
+* get the one value vs. duplicate values           ;
+***************************************************;
+
+     proc sort data=outfile.allstates (where=(state="&&n&j")) out=lrecno nodupkey;
+       by state;
+     run;
+
+***************************************************;
+* The Datasteps below create Formats - LOOK-UP     ;
+* Tables - which will contain START - the values of;
+* the STATE, i.e., ak, the LABEL - the value of the;
+* STARTRANGE for that state - i.e. for ak it is 633;
+* ENDRANGE for that state - i.e. for ak it is 1166 ;  
+* This is created for a look up so when a state is ;
+* encountered in a SAS Dataset with the value of ak;
+* the STARTRANGE and ENDRANGE are appended to the  ;
+* SAS dataset as a                                 ;
+* new variable                                     ;
+* This is done by using the FORMAT SRANGE & ERANGE ;
+***************************************************;
+
+     data lmin;
+       set lrecno;
+       start   = state;
+       label   = startrange;
+       fmtname = "$srange";
+     run;
+
+     proc format cntlin=lmin;
+     run;
+
+     data lmax;
+       set lrecno;
+       start   = state;
+       label   = endrange;
+       fmtname = "$erange";
+     run;
+
+     proc format cntlin=lmax;
+     run;
+  
+***************************************************;
+* The IMPORT Procedure reads in an EXCEL file and  ;
+* creates a SAS Dataset - in some years the EXCEL  ;
+* File has leading zeros in file name, in other    ;
+* years it doesn't, just the number of the file -  ;
+* The SEQ NUMBER                                   ;  
+* The MACRO Variable s below is based on the above ;
+* code for LZ or NZ - see above                    ;
+***************************************************;
+
+     proc import file="&geo_seq\seq&&s&r...xls" out=seq dbms=xls replace;
+         namerow=1;
+         getnames=yes;
+     run;
+
+***************************************************;
+* The CONTENTS Procedure below will create a SAS   ;
+* Dataset that contains the Name of each Variable &;
+* the VARNUM - the order the Variable as it is in  ;
+* the EXCEL file                                   ;
+***************************************************; 
+
+     proc contents noprint data=seq varnum out=seq (keep=name varnum);
+     run;
+
+     proc sort;
+       by varnum;
+     run;
+
+***************************************************;
+* Get the total number of variables in the dataset ;
+* put in the Macro Variable NOBS                   ;
+***************************************************;
+
+     data _null_;
+       set seq nobs=cnt;
+       call symput('nobs',compress(cnt));
+     run;
+
+***************************************************;
+* Put the name of the variable in VARNUM order into;
+* Macro Variables INPUT1 - INPUTx                  ;
+***************************************************;
+
+     proc sql noprint;
+       select compress(name) into :input1 - :input&nobs from seq;
+       quit;
+     run;
+    
+***************************************************;
+* Use the INPUT Macro Variables above as the value ;
+* of the name of the column in the E text file     ;
+*                                                  ;
+* This is a Text Delimited File and a comma is the ;
+* Delimiter  YDATE in the filename is the 4 digit  ;
+* Year specified in the Driver File                ;
+* The Macro Variable N is the two letter state ab.,;
+* i.e. - ak for Alaska,                            ;
+* The Macro Variable SS is the SEQ Number          ;
+* The first 6 columns in the data are in every file;
+* and are TEXT Values - The remainder of the fields;
+* in the EXCEL file are numeric and correspond to  ;
+* the names in the COLS Dataset above, i.e.        ;
+* B01001_001, B01001_002, etc                      ;
+* STUSAB is the 2 letter AB for the STATE, ie, ak  ;
+* so the FORMATS created above SRANGE and ERANGE   ;
+* are used here to get the begin and end range, so ;
+* based on the range of these 2 that is the value  ;
+* of the LOGRECNO                                  ;
+* Each row in this TXT File below has a LOGRECNO   ;
+* which is simply a Sequential Number by 1 from    ;
+* one number low to the highest value at the end of;
+* the file, so all rows between the start and end  ;
+* will be selected based on if that row has  LOGREC;
+* that fits into that range of values              ;
+* There will be Number of States * Number of Seq   ;
+* files selected SAS Datasets produced here        ;
+***************************************************;
+
+     data e_&&n&j.._seq&&s&r (rename=(lrec=logrecno));
+	   length &seqcols 3;
+       infile "&geo_est\e&ydate.5&&n&j..&&ss&r..000.txt" dlm=',' dsd truncover missover;  
+       input 
+             %do k = 1 %to 6;
+               &&input&k :$200.
+             %end;
+             %do l = 7 %to &nobs;
+               &&input&l
+             %end;; 
+       lrec = logrecno * 1;
+       beg  = put(STUSAB,$srange.) * 1;
+       end  = put(STUSAB,$erange.) * 1;
+       if logrecno >= beg and logrecno <= end;    
+       drop logrecno;
+	   keep lrec &seqcols;
+     run;
+ 
+	 proc sort;
+	   by logrecno;
+	 run;
+	 
+   %end;
+   
+***************************************************;
+* The ALLSTATES SAS Dataset below contains the GEO ;
+* information about each state by LOGRECNO         ;
+* It has BLOCKGROUP Information only based on the  ;
+* selection critera "If blockgrp ne Missing"       ;
+* The Dataset also contains these fields:          ;
+* BG and AREAKEY                                   ;
+*    BG=state||county||tract||blkgrp               ;
+*    AREAKEY = 'x'||BG                             ;
+*                                                  ;
+* Merge the GEO Information with the B Data in the ;
+* TEXT files above by LOGRECNO                     ;
+***************************************************;
+
+
+   proc sort data=outfile.allstates (where=(state="&&n&j")) out=&&n&j;
+     by logrecno;
+   run;
+
+   data e_&&n&j (keep=logrecno geoid &cols state);
+	   merge &&n&j (in=a)
+       %do m=1 %to &seqsnobs;
+                 e_&&n&j.._seq&&s&m
+             %end;;
+       by logrecno;
+	   if a;
+	   state  = left(compress(upcase("&&n&j")));
+   run;
+
+   proc datasets lib=work nolist;
+      delete %do x=1 %to &seqsnobs;
+	           e_&&n&j.._seq&&s&x 
+          %end;;
+   run;
+
+   
+
+%end;
+
+***************************************************;
+* Concatenate all the STATES files together to get ;
+* 1 Total Dataset E_ALLSTATES                      ;
+***************************************************;
+ 
+data outfile.e_allstates (rename=(geoid1=geoid));
+  length geoid1 $12;
+  set %do i = 1 %to &end_st;
+        e_&&n&i
+	  %end;;
+  county = substr(geoid,8,5);
+  geoid1 = substr(geoid,8,12);
+  fipsx  = substr(county,1,2);
+  drop geoid;
+  YEARRANGE = "&yrange";
+run;
+
+***************************************************;
+* Summarize the Dataset above to get SUMMED totals ;
+* for all the Numeric Variables in the dataset by  ;
+* COUNTY and YEARRANGE                             ;
+***************************************************;
+
+proc summary data=outfile.e_allstates nway missing;
+  class county YEARRANGE;
+  var _numeric_ ;
+  output out=outfile.acs_e_all_county (drop=_freq_ _type_ logrecno rename=(county = GEOID)) sum=;
+run;
+
+***************************************************;
+* Summarize the Dataset above to get SUMMED totals ;
+* for all the Numeric Variables in the dataset by  ;
+* FIPS and YEARRANGE                               ;
+***************************************************;
+
+proc summary data=outfile.e_allstates nway missing;
+  class fipsx YEARRANGE;
+  var _numeric_;
+  output out=outfile.acs_e_all_states (drop=_freq_ _type_ logrecno rename=(fipsx = GEOID)) sum=;
+run;
+
+***************************************************;
+* EXPORT to EXCEL all the data from the STATE FILE ;
+***************************************************;
+
+proc export data=outfile.acs_e_all_states
+   outfile="&geo_fnl\acs_&ydate._e_all_states.csv"
+   dbms=csv
+   replace;
+run;
+
+***************************************************;
+* EXPORT to EXCEL all the data from the CNTY FILE  ;
+***************************************************;
+
+proc export data=outfile.acs_e_all_county
+   outfile="&geo_fnl\acs_&ydate._e_all_county.csv"
+   dbms=csv
+   replace;
+run;
+
+proc sort data=outfile.e_allstates;
+  by geoid;
+run;
+ 
+***************************************************;
+* MERGE the E_ALLSTATES File created above with all;
+* the GEO Files 1 - 10 below:                      ;
+***************************************************;
+***************************************************;
+* %let geo1 = bg2010_in_50mi_Buffer                ;
+* %let geo2 = bg2010_in_cz                         ; 
+* %let geo3 = bg2010_in_hurricane                  ;
+* %let geo4 = bg2010_in_usgshuc                    ;
+* %let geo5 = bg2010_in_sfha2010_100yr             ;
+* %let geo6 = bg2010_in_nerrs_targets              ;
+* %let geo7 = bg2010_in_nerrs2Large                ;
+* %let geo8 = bg2010_in_nepwatersheds              ;
+* %let geo9 = bg2010_in_nepstdyareas               ;
+* %let geo10= bg2010_ccap_watersheds               ;
+*                                                  ;
+* Then Summarize the results by the Class Variables;
+* indicated here for each of the 10                ;
+*                                                  ; 
+***************************************************;
+* %let var1 = FIPSX YEARRANGE                      ; 
+* %let var2 = FIPSX YEARRANGE                      ;
+* %let var3 = FIPSX YEARRANGE                      ;
+* %let var4 = HHUC YEARRANGE                       ;
+* %let var5 = FEMAFIPS YEARRANGE                   ; 
+* %let var6 = WSHD_CODE YEARRANGE                  ;
+* %let var7 = WSHD_CODE YEARRANGE                  ;
+* %let var8 = NEPID YEARRANGE                      ;
+* %let var9 = NEPID YEARRANGE                      ;
+* %let var10= HHUC YEARRANGE                       ;
+***************************************************;
+
+%do b=1 %to 10;
+
+    data e1_&&geo&b (drop=m bg_ratio logrecno rename=(landsqmi_c=landsqmi));
+	  format landsqmi_c $20.;
+      merge outfile.e_allstates (in=a) &&geo&b (in=b);
+	  by geoid;
+	  if a and b;
+	  landsqmi_c = put(landsqmi,8.);
+	  array _x (*) _numeric_;
+	  do m = 1 to dim(_x);
+        _x(m) = bg_ratio * _x(m);
+	  end;
+	  drop landsqmi;
+   run;
+
+   proc summary data=e1_&&geo&b nway missing;
+     class &&var&b;
+	 var _numeric_;
+	 output out=e3_&&geo&b (drop=_freq_ _type_) sum=;
+   run;
+
+   %let newvar&b = %qscan(&&var&b,1);
+
+   %put &&newvar&b;
+
+***************************************************;
+* RENAME all the 1st Variables in the 10 Datasets  ;
+* to GEOID                                         ;
+* ROUND all the Numeric values to whole number     ;
+***************************************************;
+
+   data outfile.acs_e_&&geo&b (drop=m rename=(&&newvar&b = GEOID));
+     set e3_&&geo&b;
+	 array _x (*) _numeric_;
+	 do m = 1 to dim(_x);
+	   _x(m) = round(_x(m));
+	 end;
+   run;
+
+***************************************************;
+* EXPORT to EXCEL the Dataset created above 1 time ;
+* for each of the 10 Datasets                      ;
+***************************************************;
+
+   proc export data=outfile.acs_e_&&geo&b
+   outfile="&geo_fnl\acs_&ydate._e_&&geo&b...csv"
+   dbms=csv
+   replace;
+   run;
+
+%end;
+
+%mend geofile;
+
+%geofile; 
+
+***************************************************;
+* Read in the EXCEL file that contains the         ;
+* WATERSHED GEO Data                               ;
+***************************************************;
+* DSD Means read in Comma Delimited CSV file and   ;
+* DOUBLE QUOTE the column values with quotes in    ;
+* Them.                                            ;
+***************************************************;
+
+data watershed (rename=(nfips=fips nstfip=statefips));
+    infile "&GEO_path\&WATERREF" dsd firstobs=2;
+	input fips countyname :$200. statefips countyfips stateabbr :$200. statename :$200.;
+	nfips = put(fips,z5.);
+	nstfip= put(statefips,z2.);
+	drop fips statefips;
+run;
+
+
+
+proc sort data=watershed nodupkey out=watershed (keep=stateabbr fips statename);
+  by fips;
+run;
+ 
+***************************************************;
+* Read in the EXCEL file that contains the         ;
+* SHORELINE GEO Data                               ;
+***************************************************;
+* DSD Means read in Comma Delimited CSV file and   ;
+* DOUBLE QUOTE the column values with quotes in    ;
+* Them.                                            ;
+***************************************************;
+
+data shoreline (rename=(nfips=fips nstfip=statefips));
+    infile "&GEO_path\&SHOREREF" dsd firstobs=2;
+	input fips countyname :$200. statefips countyfips stateabbr :$200. statename :$200. region :$200. shore;
+	nfips = put(fips,z5.);
+	nstfip= put(statefips,z2.);
+	drop fips statefips;
+run;
+
+proc sort data=shoreline nodupkey out=shoreline (keep=statefips stateabbr fips countyname);
+  by fips;
+run;
+
+proc sort data=outfile.acs_e_all_county out=county;
+  by geoid;
+run;
+
+***************************************************;
+* Combine the SHORELINE and COUNTY Data to get     ;
+* SHORELINE GEO Data for ACS                       ;
+***************************************************;
+
+data outfile.shoreline (rename=(yearrange1=YEARRANGE));
+   merge shoreline (in=a) county (in=b rename=(geoid=fips));
+   by fips;
+   if a;
+   Geo_ref = 'National';
+   yearrange1=yearrange;
+   drop yearrange;
+run;
+
+***************************************************;
+* SUM the SHORELINE NUMERIC DATA by STATEFIPS      ;
+***************************************************;
+
+proc summary data=outfile.shoreline nway missing;
+   class statefips YEARRANGE;
+   var _numeric_;
+   output out=outfile.acs_shoreline_state (drop=_freq_ _type_ rename=(statefips = GEOID)) sum=;
+run;
+
+***************************************************;
+* Write SHORELINE DATA to EXCEL                    ;
+***************************************************;
+
+proc export data=outfile.acs_shoreline_state
+   outfile="&geo_fnl\acs_&ydate._shoreline_state.csv"
+   dbms=csv
+   replace;
+run;
+
+***************************************************;
+* SUM the SHORELINE NUMERIC DATA by NATIONAL LEVEL ;
+***************************************************;
+
+proc summary data=outfile.shoreline nway missing;
+   class geo_ref YEARRANGE;
+   var _numeric_;
+   output out=outfile.acs_shoreline_natl (drop=_freq_ _type_ rename=(geo_ref = GEOID)) sum=;
+   where geo_ref ne ' ' and YEARRANGE ne ' ';
+run;
+
+***************************************************;
+* Write SHORELINE DATA to EXCEL                    ;
+***************************************************;
+
+proc export data=outfile.acs_shoreline_natl
+   outfile="&geo_fnl\acs_&ydate._shoreline_national.csv"
+   dbms=csv
+   replace;
+run;
+
+***************************************************;
+* SUM the SHORELINE NUMERIC DATA by FIPS LEVEL     ;
+***************************************************;
+
+proc summary data=outfile.shoreline nway missing;
+  class fips YEARRANGE;
+  var _numeric_;
+  output out=outfile.acs_shoreline_cty (drop=_freq_ _type_ rename=(fips = GEOID)) sum=;
+run;
+
+***************************************************;
+* Write SHORELINE DATA to EXCEL                    ;
+***************************************************;
+
+proc export data=outfile.acs_shoreline_cty
+   outfile="&geo_fnl\acs_&ydate._shoreline_county.csv"
+   dbms=csv
+   replace;
+run;
+
+***************************************************;
+* Combine the WATERSHED and COUNTY Data to get     ;
+* WATERSHED GEO Data for ACS                       ;
+***************************************************;
+
+data outfile.watershed(rename=(yearrange1=YEARRANGE));
+   merge watershed (in=a) county (in=b rename=(geoid=fips));
+   by fips;
+   if a;
+   Geo_ref = 'National';
+   stfips = substr(fips,1,2);
+   yearrange1 = yearrange;
+   drop yearrange;
+run;
+
+***************************************************;
+* SUM the SHORELINE NUMERIC DATA by STATEFIPS      ;
+***************************************************;
+
+proc summary data=outfile.watershed nway missing;
+   class stfips YEARRANGE;
+   var _numeric_;
+   output out=outfile.acs_watershed_state (drop=_freq_ _type_ rename=(stfips = GEOID)) sum=;
+run;
+
+***************************************************;
+* Write WATERSHED DATA to EXCEL                    ;
+***************************************************;
+
+proc export data=outfile.acs_watershed_state
+   outfile="&geo_fnl\acs_&ydate._watershed_state.csv"
+   dbms=csv
+   replace;
+run;
+
+***************************************************;
+* SUM the WATERSHED NUMERIC DATA by FIPS LEVEL     ;
+***************************************************;
+
+proc summary data=outfile.watershed nway missing;
+   class fips YEARRANGE;
+   var _numeric_;
+   output out=outfile.acs_watershed_cty (drop=_freq_ _type_ rename=(fips = GEOID)) sum=;
+run;
+
+***************************************************;
+* Write WATERSHED DATA to EXCEL                    ;
+***************************************************;
+
+proc export data=outfile.acs_watershed_cty
+   outfile="&geo_fnl\acs_&ydate._watershed_county.csv"
+   dbms=csv
+   replace;
+run;
+
+***************************************************;
+* SUM the WATERSHED NUMERIC DATA by NATIONAL LEVEL ;
+***************************************************;
+
+proc summary data=outfile.watershed nway missing;
+   class geo_ref YEARRANGE;
+   var _numeric_;
+   output out=outfile.acs_watershed_natl (drop=_freq_ _type_ rename=(geo_ref = GEOID)) sum=;
+   where geo_ref ne ' ' and YEARRANGE ne ' ';
+run;
+
+***************************************************;
+* Write WATERSHED DATA to EXCEL                    ;
+***************************************************;
+
+proc export data=outfile.acs_watershed_natl
+   outfile="&geo_fnl\acs_&ydate._watershed_national.csv"
+   dbms=csv
+   replace;
+run;
+
+proc printto;
+run;
+
