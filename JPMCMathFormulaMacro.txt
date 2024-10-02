@@ -1,0 +1,234 @@
+options nosymbolgen mprint nomlogic;
+
+
+proc datasets kill lib=work memtype=data;
+  quit;
+run;
+
+proc printto;
+run;
+
+%macro trans;
+
+%do j=1 %to 5;
+
+   L&j._&var = lag&j(&var);
+
+%end;
+
+%do m=1 %to 5;
+      
+   %if &m = 1 %then %do;
+      CUM&m._&var = &var;
+   %end;
+
+   %else %if &m = 2 %then %do;
+      CUM&m._&var = &var + lag1(&var);
+   %end;
+
+   %else %do; 
+	  CUM&m._&var =  &var +
+                    %do k = 1 %to %eval(&m-2);
+				        lag&k(&var) + 
+					%end;
+                    %do k = %eval(&m-1) %to %eval(&m-1);
+					    lag&k(&var);
+                    %end;
+   %end;
+
+%end;
+
+%do j=1 %to 5;
+   %do i=1 %to 5;
+      L&j._CUM&i._&var = lag&j(CUM&i._&var);
+   %end;
+%end;
+
+
+%do r=3 %to 5;
+   %do x=3 %to 5;
+      %do y=0 %to 5;
+         L0_MOM&y._MA&r._CUM&x._GR_&var = (     ((CUM&x._&var /lag%eval(0+&y)(CUM&x._&var))-1) +
+	                                       ((lag1(CUM&x._&var)/lag%eval(1+&y)(CUM&x._&var))-1) +
+						        		   ((lag2(CUM&x._&var)/lag%eval(2+&y)(CUM&x._&var))-1)  
+	     %if &r = 3 %then %do; 
+	         ) / 3;
+	     %end;
+	     %else %do;
+	         %do g = 3 %to %eval(&r-1);
+	            + ((lag&g(CUM&x._&var)/lag%eval(&g+0+&y)(CUM&x._&var))-1)
+	         %end;
+		        ) / &r;
+	     %end;
+	  %end;
+   %end;
+%end;
+
+%do r=3 %to 5;
+      %do y=0 %to 5;
+         L0_MOM&y._MA&r._GR_&var = (       (     (&var /lag%eval(0+&y)(&var))-1) +
+	                                       ((lag1(&var)/lag%eval(1+&y)(&var))-1) +
+						        		   ((lag2(&var)/lag%eval(2+&y)(&var))-1)  
+	     %if &r = 3 %then %do; 
+	         ) / 3;
+	     %end;
+	     %else %do;
+	         %do g = 3 %to %eval(&r-1);
+	            + ((lag&g(&var)/lag%eval(&g+0+&y)(&var))-1)
+	         %end;
+		        ) / &r;
+	     %end;
+	  %end;
+%end; 
+
+%do t=3 %to 5;
+
+   dd = %do xx = &t %to 2 %by -1;
+           &xx +
+		%end;
+		%do zz = 1 %to 1;
+		   &zz;
+		%end;
+
+   L0_&t.MOM_WDIFF = (((    (&var) - lag1(&var)) *         &t )  +
+                      ((lag1(&var) - lag2(&var)) * %eval(&t-1))  +
+					  ((lag2(&var) - lag3(&var)) * %eval(&t-2))
+	             %if &t = 3 %then %do;
+	                    ) / dd;
+				 %end;
+				 %else %do;
+				    %do s = 3 %to %eval(&t-1);
+				           +
+					      ((lag&s(&var) - lag%eval(&s+1)(&var)) * %eval(&t-&s))
+				    %end;
+				    %do w = &t %to &t;
+                          ) / dd;
+                    %end; 
+				 %end;
+
+   L&t._&t.MOM_WDIFF = lag&t(L0_&t.MOM_WDIFF);
+ 
+        
+%end;
+
+%do r=3 %to 5;
+   %do c = 1 %to 5;
+
+      dd = %do xx = &r %to 2 %by -1;
+              &xx +
+		   %end;
+		   %do zz = 1 %to 1;
+		      &zz;
+		   %end;
+
+      L0_&r.MOM_WDIFF_CUM&c  = ((    (CUM&c._&var) - lag1(CUM&c._&var)) * &r          +
+                                (lag1(CUM&c._&var) - lag2(CUM&c._&var)) * %eval(&r-1) +
+		    			        (lag2(CUM&c._&var) - lag3(CUM&c._&var)) * %eval(&r-2)
+	                %if &r = 3 %then %do;
+	                       ) / dd;
+				    %end;
+				    %else %do;
+				       %do s = 3 %to %eval(&r-1);
+				              +
+					         (lag&s(CUM&c._&var) - lag%eval(&s+1)(CUM&c._&var)) * %eval(&r-&s)
+				       %end;
+				       %do w = &r %to &r;
+                             ) / dd;
+                       %end; 
+				    %end;
+   %end;
+%end;
+
+%do r = 0 %to 5;
+   %do c = 3 %to 5;
+      %do z = 1 %to 5;
+
+          L&r._&c.MOM_WDIFF_CUM&z = lag&r(L0_&c.MOM_WDIFF_CUM&z);
+ 
+      %end;  
+   %end;
+%end;
+
+%do j=3 %to 5;
+
+    L0_&j._MOAVG_&var = (&var  
+         %do xx = 1 %to %eval(&j-1);
+               + lag&xx(&var)
+         %end;
+         %do zz = &j %to &j;
+               ) / &j;
+         %end;
+
+
+   %do nn = 0 %to 5;
+         
+         L&nn._&j._MOAVG_&var = lag&nn(L0_&j._MOAVG_&var);
+
+   %end;
+
+%end;
+ 
+%mend trans;
+
+%let var = HPI;
+
+data a;
+   infile cards;
+   input obs house_price_index;
+   cards;
+   1 110
+   2 120
+   3 125
+   4 134
+   5 150
+   6 180
+   7 200
+   8 140
+   9 290
+   ;
+run;
+
+data a (rename=(house_price_index=HPI));
+   set a (keep=obs house_price_index);
+run;
+
+data HPI_Transformations;
+  set a;
+  %trans;
+run;
+ 
+proc print;
+run;
+
+proc contents data=HPI_Transformations out=t (keep=name varnum);
+run;
+
+proc sort;
+  by varnum;
+run;
+
+
+data t;
+  set t;
+  name=upcase(name);
+  if name not in ('DD','OBS');
+  if find(name,'L','i')     then function1 = 'LAG  ';
+  if find(name,'MOM','i')   then function2 = 'MOM  ';
+  if find(name,'MA','i')    then function3 = 'MA   ';
+  if find(name,'CUM','i')   then function4 = 'CUM  ';
+  if find(name,'MOAVG','i') then function5 = 'MOAVG';
+  if find(name,'WDIFF','i') then function6 = 'WDIFF';
+  if find(name,'GR','i')    then function7 = 'GR   ';
+run;
+
+proc export data=t
+   outfile="c:\temp\Freqs.csv"
+   dbms=csv
+   replace;
+run;
+
+
+
+ 
+ 
+
