@@ -1,0 +1,3767 @@
+*Sample 1:;
+%macro create_conc;
+
+ 	proc format;
+ 	value rate
+ 	1 = 'Poor'
+ 	2 = 'Just OK'
+ 	3 = 'Good'
+ 	4 = 'Very Good'
+ 	5 = 'Excellent'
+ 	;
+ 	run;
+
+	data conc;
+ 	length _a1 _a2 _a3 _a4 _a5 _a6 _a7 _a8 _a9 $12;
+ 		set scanned (keep=staterm conovs conpe cononbrdhelp confc 
+						  rmworkin srcleanstay ovprvalu overall prhandle concierge 
+		where=(concierge = 1));
+ 		array _x(9) $ _a1 - _a9;
+ 		array _y(9) conovs conpe cononbrdhelp confc rmworkin 
+					srcleanstay ovprvalu overall prhandle;
+ 		do i = 1 to 9;
+ 			if _y(i) ne . then _x(i) = put(_y(i),rate.);
+ 			else _x(i) = ' ';
+ 		end;
+ 		keep staterm _a:;
+ 	run; 
+
+	proc print;	
+ 	run;
+
+%mend create_conc;
+
+*Sample 2:;
+
+%macro create_prdetail;
+
+	data pr;
+ 		retain _prcce _prccea _prcctran _prch _prcrew _prent 
+			   _prtween _prteen _prfbserv _prfbqual _prfbdntm _prfbtass _prfbbevs 
+			   _prphoto _prseresp _prseexp _prres _prsp _proa _prmerch _prgstsvcdsk 
+ 			   _prhc _prld _prlgdam 
+			   _prarealg _prnursery _procl _prpool _prsr _prap2wdw _prres2pc _prap2pc 
+			   staterm overall prprob prtell prhandle;
+ 		length _: $1;
+ 		set scanned (keep = staterm overall prprob prtell prhandle 
+					prcce prccea prcctran prch prcrew prent prtween prteen prfbserv 
+					prfbqual prfbdntm prfbtass prfbbevs prphoto prseresp prseexp prres 
+					prsp proa prmerch prgstsvcdsk 
+ 					prhc prld prlgdam 
+					prarealg prnursery procl prpool prsr prap2wdw prres2pc prap2pc);
+		array _x(*) prcce prccea prcctran prch prcrew prent 
+					prtween prteen prfbserv prfbqual prfbdntm prfbtass prfbbevs prphoto 
+					prseresp prseexp prres prsp proa prmerch prgstsvcdsk 
+ 					prhc prld prlgdam 
+					prarealg prnursery procl prpool prsr prap2wdw prres2pc prap2pc;
+		array _y(*) $ _prcce _prccea _prcctran _prch _prcrew 
+					_prent _prtween _prteen _prfbserv _prfbqual _prfbdntm _prfbtass 
+					_prfbbevs _prphoto _prseresp _prseexp _prres _prsp _proa _prmerch 
+					_prgstsvcdsk 
+ 					_prhc _prld _prlgdam 
+					_prarealg _prnursery _procl _prpool _prsr _prap2wdw _prres2pc 
+					_prap2pc;
+		a=sum(prcce ,prcctran ,prch ,prcrew ,prent ,prtween 
+			,prteen ,prfbserv ,prfbqual ,prfbdntm ,prfbtass ,_prfbbevs ,prphoto 
+			,prseresp ,prseexp ,prres ,prsp ,proa ,prmerch ,prgstsvcdsk 
+ 			,prhc ,prld ,prlgdam 
+			,prarealg ,prnursery ,procl ,prpool ,prsr ,prap2wdw ,prres2pc 
+			,prap2pc);
+	if overall = 5  then overallrating  = 'EXC';
+	if overall = 4  then overallrating  = 'VG';
+	if overall = 3  then overallrating  = 'G';
+	if overall = 2  then overallrating  = 'JO';
+	if overall = 1  then overallrating  = 'P';
+	if overall = .  then overallrating  = ' ';
+	if prhandle = 5 then prhandlerating = 'EXC';
+	if prhandle = 4 then prhandlerating = 'VG';
+	if prhandle = 3 then prhandlerating = 'G';
+	if prhandle = 2 then prhandlerating = 'JO';
+	if prhandle = 1 then prhandlerating = 'P';
+	if prhandle = . then prhandlerating = ' ';
+	if a > 0;
+	do j = 1 to dim(_x);
+ 		if _x(j) >= 1 then _y(j) = 'X';
+		else _y(j) = ' ';
+	end;
+	if prprob in (1,2) then problem = 'X';
+	else problem = ' ';
+	if prtell in (1,2) then tell = 'X';
+	else tell = ' ';
+	keep staterm problem tell overallrating prhandlerating _:;
+	label _prcce = 'Castaway Cay - Excursion' 
+ 		_prccea = 'Castaway Cay - Experience/Activities'
+ 		_prcctran = 'Castaway Cay - Transportation'
+ 		_prch = 'Characters'
+ 		_prcrew = 'Crew'
+ 		_prent = 'Entertainment'
+		_prtween = 'Edge'
+		_prteen = 'Vibe'
+		_prfbserv = 'Food & Beverage Service'
+		_prfbqual = 'Food & Beverage Food Quality'
+		_prfbdntm = 'Food & Beverage Dining Time'
+		_prfbtass = 'Food & Beverage Table Assignment'
+ 		_prfbbevs = 'Food & Beverage Beverage Service'
+ 		_prphoto = 'Photography'
+		_prseresp = 'Port Adventure Reservation'
+		_prseexp = 'Port Adenture Experience'
+		_prres = 'Reservations (Stateroom)'
+		_prsp = 'Spa'
+		_proa = 'Onboard Account'
+		_prmerch = 'Onboard Merchandise'
+		_prgstsvcdsk = 'Guest Services desk'
+		_prhc = 'Heath Center - Medical Care'
+ 		_prld = 'Laundry'
+		_prlgdam = 'Luggage - Damaged'
+ 		_prarealg = 'Luggage - Delivery'
+ 		_prnursery = "Youth Areas - It's a Small World"
+ 		_procl = 'Youth Areas - Oceaneer Club/Lab'
+ 		_prpool = 'Pool Area'
+ 		_prsr = 'Stateroom'
+ 		_prap2wdw = 'Transportation - Airport to Hotel'
+ 		_prres2pc = 'Transportation - Hotel to Cruise Terminal'
+ 		_prap2pc = 'Transportation - Airport to Cruise Terminal'
+ 		;
+	run;
+
+	proc contents data=pr out=prdata (keep=name varnum label
+		where=(name not in ('staterm','problem','tell','overallrating','prhandlerating')));
+ 	run;
+
+	proc sort;
+ 		by varnum;
+ 	run;
+
+	proc print;
+    run; 
+
+%mend create_prdetail;
+
+*Sample 3:;
+
+%macro create_qtrgoal;
+options symbolgen mprint mlogic;
+
+	data _null_;
+		set common.fiscal_cal;
+ 		if oper_date = &dt;
+ 		call symputx('fq',fq);
+ 	run;
+
+	data data1;
+ 		set sasrptdata;
+ 		if ship = 'Magic' and fiscalyear = 2019;
+ 		date = datepart(dt);
+ 		format date mmddyy10.;
+ 		drop dt;
+ 	run;
+
+	data vars;
+ 		length q1range q2range q3range q4range $12;
+ 		set x1.QTRGOALTAB;
+ 		if activeqtrgoaltab = 'Y';
+ 		q1range = strip(put(q1min,3.))||'% -'||strip(put(q1max,3.))||'%';
+ 		q2range = strip(put(q2min,3.))||'% -'||strip(put(q2max,3.))||'%';
+ 		q3range = strip(put(q3min,3.))||'% -'||strip(put(q3max,3.))||'%';
+ 		q4range = strip(put(q4min,3.))||'% -'||strip(put(q4max,3.))||'%';
+ 	run;
+
+	data _null_;
+	 	set vars end=last;
+ 		if last then call symputx('n',_n_);
+ 	run;
+
+	proc sort data=vars;
+ 		by qtrgoaltabsectionorder;
+ 	run;
+
+	proc sql;
+ 		select variable into :v1 - :v&n from vars;
+ 		select qtrgoaltabitem into :z1 - :z&n from vars;
+ 		select qtrgoaltabsectionorder into :s1 - :s&n from vars;
+ 		%do j = 1 %to &fq;
+ 			select q&j.max *.01 into :q&j.max1 - :q&j.max&n from vars;
+ 			select q&j.min * .01 into :q&j.min1 - :q&j.min&n from vars;
+			select q&j.range into :q&j.range1- :q&j.range&n from vars;
+ 		%end;
+ 	quit;
+ 
+ 
+**********************************************************************************************;
+* This data output is from a different dataset - easier to use SQL 
+here ;
+**********************************************************************************************;
+	%do q = 1 %to &fq;
+ 		%do f = 1 %to &n;
+ 
+ 			proc sql;
+ 				create table numwithin as 
+ 				SELECT Count(id) AS cntw FROM data1 WHERE 
+				varname="&&v&f" AND itemname="&&z&f" AND quarter=&q and date <= '24apr2019'd 
+				and exclude is null and qip is null and itemdata <= &&q&q.max&f
+ 				and itemdata >=&&q&q.min&f;
+
+				create table numabove as
+				SELECT Count(id) AS cnta FROM data1 WHERE 
+				varname="&&v&f" AND itemname="&&z&f" AND quarter=&q and date <= '24apr2019'd 
+				and exclude is null and qip is null and itemdata > &&q&q.max&f;
+
+				create table numbelow as
+				SELECT Count(id) AS cntb FROM data1 WHERE 
+				varname="&&v&f" AND itemname="&&z&f" AND quarter=&q and date <= '24apr2019'd 
+				and exclude is null and qip is null and itemdata < &&q&q.min&f;
+
+				create table denom as 
+ 				Select Count(id) as cntd FROM data1 WHERE varname="&&v&f" 
+				AND itemname="&&z&f" AND quarter=&q and date <= '24apr2019'd and 
+				exclude is null and qip Is null;
+
+				create table within as
+ 				select "&&q&q.range&f" as range&q , cntd, cntw/cntd as 
+				pw, &f as qtrgoaltabsectionorder from numwithin,denom;
+
+				create table above as
+ 				select qtrgoaltabsectionorder, cnta/cntd as pa, pw, 
+				range&q , cntd from numabove,within;
+
+				create table final as
+ 				select cntd , qtrgoaltabsectionorder, cntb/cntd as pb, 
+				pw, pa, range&q from numbelow,above;
+			quit;
+
+			proc print data=final;
+			run;
+
+			proc append base=qtr&q data=final force;
+			run;
+
+		%end;
+
+		data qtr&q (rename=(ppw1=within&q ppa1=above&q 	ppb1=below&q));
+ 			set qtr&q;
+			perc = '%';
+ 			if cntd > 0 then do;
+ 				pw1 = round(pw,.01) * 100;
+ 				ppw1 = catt(pw1,perc);
+ 				pa1 = round(pa,.01) * 100;
+ 				ppa1 = catt(pa1,perc);
+ 				pb1 = round(pb,.01) * 100;
+ 				ppb1 = catt(pb1,perc);
+ 			end;
+ 			else ppw1 = '-';
+			drop pw pa pb pw1 pa1 pb1 perc cntd;
+ 		run;
+
+		proc sort;
+ 			by qtrgoaltabsectionorder;
+ 		run;
+
+	%end;
+ 
+ 	data qtrgoal;
+ 		merge vars (keep=qtrgoaltabsectionorder qtrgoallabel 
+			rename=(qtrgoallabel=label))
+ 		%do r =1 %to &fq;
+ 			qtr&r
+		%end;;
+		by qtrgoaltabsectionorder;
+
+	run;
+
+	proc print data=qtrgoal;
+ 	run;
+
+%mend create_qtrgoal; 
+Sample 4:
+%macro create_data_cube;
+ 
+*********************************************************************;
+* Read IN Excel Sheet for refererence to SAS Variable Names for calculations;
+*********************************************************************;
+
+	data matrixnames1;
+		set x1.variables;
+ 		if activedetailtab = 'Y';
+ 	run;
+ 
+*********************************************************************;
+* Read IN Excel Sheet for Variables that are analyzed for Excellent, VG, G,OK ;
+*********************************************************************;
+
+	data ex;
+ 		set matrixnames1;
+ 		if storepctexcellent = 'Y';
+	run;
+*********************************************************************;
+* Read IN Excel Sheet for Variables Problem Resolution ;
+*********************************************************************;
+	data prob;
+ 		set matrixnames1;
+ 		if detailtabsection = 'Problem Resolution' and 
+		detailtabreportorder = 15;
+	run;
+*********************************************************************;
+* Read IN Excel Sheet for Variables Non-Satisfactory Items ;
+*********************************************************************;
+	data nsat;
+ 		set matrixnames1;
+ 		if detailtabsubsection="Non-Satisfactory Items List";
+ 	run;
+*********************************************************************************************************************;
+* Calculate total Number of Queries needed - For Excellent percents - Based on the different variables evaluated to build report ;
+*********************************************************************************************************************;
+ 	data _null_;
+ 		set ex end=last;
+ 		if last then call symputx('n',_n_);
+ 	run;
+
+	data _null_;
+ 		set nsat end=last;
+ 		if last then call symputx('q',_n_);
+ 	run;
+
+	data _null_;
+	 	set prob end=last;
+ 		if last then call symputx('s',_n_);
+ 	run;
+
+	**********************************************************************************************;
+	* Save all VALUES - The variables used for evaluating the survey results - Into Macro variables ;
+	**********************************************************************************************;
+
+	proc sql noprint;
+ 		select variable into :vars separated by ' ' from ex;
+ 		select quote(variable) into :xvars separated by ' ' from ex;
+ 		select quote(variable) into :sqlvar1 - :sqlvar&n from ex;
+ 		select quote(detailtabsection) into :dts separated by ' ' from ex;
+ 		select quote(detailtabsubsection) into :sdts separated by ' ' from ex;
+ 		select variable into :v1 - :v&q from nsat;
+ 		select variable into :vvars separated by ' ' from nsat;
+ 		select label into :lab1 - :lab&q from nsat;
+ 		select variable into :svars separated by ' ' from prob;
+ 		select quote(variable) into :sqlprobs1 - :sqlprobs&n from prob;
+ 	quit;
+ 
+**********************************************************************************************;
+* This data output is from a different dataset - easier to use SQL here ;
+**********************************************************************************************;
+ 	proc sql;
+ 	%do f = 1 %to &n;
+		create table sqldata&f as select
+ 		max(itemdata) as benchmark from sasrptdata where varname = 
+		&&sqlvar&f and itemname = 'Excellent' and fiscalyear = 2019 and route 
+		= 'Bahamas' and ship='Magic';
+
+		create table sqldata_&f as select
+ 		max(itemdata) as excellent from sasrptdata where varname = 
+		&&sqlvar&f and itemname = 'Excellent' and route = 'Bahamas' and 
+		ship='Magic';
+
+		create table sqly&f as select
+ 		max(itemdata) as highestavg from sasrptdata where varname = 
+		&&sqlvar&f and itemname = 'Avg' and route = 'Bahamas' and 
+		ship='Magic';
+
+		create table sql_&f as select benchmark , excellent from 
+		sqldata&f, sqldata_&f;
+ 		create table sqlx_&f as select benchmark , excellent , 
+		highestavg from sql_&f, sqly&f;
+ 	%end;
+
+	quit;
+ 
+ 
+**********************************************************************************************;
+* Add Each Query from Above on top of the next to create multiple Rows of data in ALLSQL1 ;
+**********************************************************************************************;
+ 	data allsql1;
+ 		set %do g = 1 %to &n;
+ 				sqlx_&g
+ 			%end;;
+ 	run;
+
+	proc datasets lib=work nodetails;
+ 		delete sql:;
+ 	run;
+********************************************************************;
+* THE EXCELLENT MAIN REPORT VARIABLES
+* Total Count where variable > 0 = TC 
+* Total Excellent = N5 
+* Total Very Good = N4 
+* Total Good = N3 
+* Total OK = N2 
+* Total POOR = N1 
+* Total Family = DF 
+* Total Non-Family = DNF 
+* Total Cruisers = DC 
+* Total Non-Cruisers = DNC 
+* Total Excellent for Family = NF5 
+* Total Excellent for Non-Family = NNF5
+* Total Excellent for Cruisers = NC5 
+* Total Excellent for Non-Cruisers = NNC5
+* % Excellent = P5 
+* % Very Good = P4
+* % Good = P3
+* % OK = P2
+* % Poor = P1
+* AVG = AVG
+* % Excellent Family = P5_F 
+* % Excellent Non-Family = P5_NF
+* % Excellent Cruisers = P5_C
+* % Excellent Non-Cruisers = P5_NC
+*********************************************************************;
+%let t1 = tc:;
+%let t2 = n5:;
+%let t3 = n4:;
+%let t4 = n3:;
+%let t5 = n2:;
+%let t6 = n1:;
+%let t7 = df:;
+%let t8 = dnf:;
+%let t9 = dc:;
+%let t10 = dnc:;
+%let t11 = nf5:;
+%let t12 = nnf5:;
+%let t13 = nc5:;
+%let t14 = nnc5:;
+%let t15 = sum:;
+%let pre1 = tc;
+%let pre2 = n5;
+%let pre3 = n4;
+%let pre4 = n3;
+%let pre5 = n2;
+%let pre6 = n1;
+%let pre7 = df;
+%let pre8 = dnf;
+%let pre9 = dc;
+%let pre10 = dnc;
+%let pre11 = nf5;
+%let pre12 = nnf5;
+%let pre13 = nc5;
+%let pre14 = nnc5;
+%let pre15 = sum;
+
+	data rpt1;
+ 		set scanned (keep=&vars dechilds demultiother denumcruises) end=last;
+ 		array _a1 (*) &vars;
+ 		array _b1 (*) tc1 - tc&n;
+ 		array _b2 (*) n5_1 - n5_&n;
+ 		array _b3 (*) n4_1 - n4_&n;
+ 		array _b4 (*) n3_1 - n3_&n;
+ 		array _b5 (*) n2_1 - n2_&n;
+ 		array _b6 (*) n1_1 - n1_&n;
+ 		array _b7 (*) df1 - df&n;
+ 		array _b8 (*) dnf1 - dnf&n;
+ 		array _b9 (*) dc1 - dc&n;
+ 		array _b10 (*) dnc1 - dnc&n;
+ 		array _b11 (*) nf5_1 - nf5_&n;
+ 		array _b12 (*) nnf5_1 - nnf5_&n;
+ 		array _b13 (*) nc5_1 - nc5_&n;
+ 		array _b14 (*) nnc5_1 - nnc5_&n;
+ 		array _b15 (*) sum1 - sum&n;
+ 		array _all (*) _numeric_;
+ 		do j=1 to dim(_all);
+ 			if _all(j) = . then _all(j) = 0;
+ 		end; 
+ 		do i = 1 to dim(_a1);
+ 			_b15(i) + _a1(i);
+ 			if _a1(i) > 0 then _b1(i) + 1;
+ 			else _b1(i) + 0;
+ 			if _a1(i) = 5 then _b2(i) + 1;
+ 			else _b2(i) + 0;
+ 			if _a1(i) = 4 then _b3(i) + 1;
+			else _b3(i) + 0;
+ 			if _a1(i) = 3 then _b4(i) + 1;
+ 			else _b4(i) + 0;
+ 			if _a1(i) = 2 then _b5(i) + 1;
+ 			else _b5(i) + 0;
+ 			if _a1(i) = 1 then _b6(i) + 1; 
+ 			else _b6(i) + 0;
+ 			if _a1(i) > 0 and dechilds = 1 then _b7(i) + 1;
+ 			else _b7(i) + 0;
+ 			if _a1(i) > 0 and dechilds = 2 then _b8(i) + 1;
+ 			else _b8(i) + 0;
+ 			if _a1(i) > 0 and ((demultiother=1) or (denumcruises>1)) then _b9(i) + 1;
+ 			else _b9(i) + 0;
+ 			if _a1(i) > 0 and ((demultiother=2) and (denumcruises=1)) then _b10(i) + 1;
+ 			else _b10(i) + 0;
+ 			if _a1(i) = 5 and dechilds = 1 then _b11(i) + 1;
+ 			else _b11(i) + 0;
+ 			if _a1(i) = 5 and dechilds = 2 then _b12(i) + 1;
+ 			else _b12(i) + 0;
+ 			if _a1(i) = 5 and ((demultiother=1) or (denumcruises>1)) then _b13(i) + 1;
+ 			else _b13(i) + 0;
+ 			if _a1(i) = 5 and ((demultiother=2) and (denumcruises=1)) then _b14(i) + 1;
+ 			else _b14(i) + 0;
+ 		end;
+ 		if last then output;
+ 	run;
+
+	%do r = 1 %to 15;
+
+		proc transpose data=rpt1 (keep=&&t&r) out=trans&r (drop=_name_ rename=(col1 = &&pre&r));
+ 		run;
+
+		data ex;
+ 			merge ex trans&r;
+ 		run;
+
+	%end;
+
+	proc datasets lib=work nodetails;
+		delete trans:;
+ 	run;
+
+	data ex1;
+	 	set ex;
+ 		if tc > 0 then do;
+ 			p5 = round(n5/tc,.01) * 100;
+ 			p4 = round(n4/tc,.01) * 100;
+ 			p3 = round(n3/tc,.01) * 100;
+ 			p2 = round(n2/tc,.01) * 100;
+ 			p1 = round(n1/tc,.01) * 100;
+ 		end;
+ 		else do;
+ 			p5 = -9;
+ 			p4 = -9;
+ 			p3 = -9;
+ 			p2 = -9;
+ 			p1 = -9;
+ 		end;
+ 		if df > 0 then p5f = round(nf5/df,.01) * 100;
+ 		else p5f = -9;
+ 		if dnf > 0 then p5nf = round(nnf5/dnf,.01) * 100;
+ 		else p5nf = -9;
+ 		if dc > 0 then p5c = round(nc5/dc,.01) * 100;
+ 		else p5c = -9;
+ 		if dnc > 0 then p5nc = round(nnc5/dnc,.01) * 100;
+ 		else p5nc = -9;
+ 		if tc > 0 then avg = round(sum/tc,.1);
+ 		else avg = -9;
+		perc = '%';
+		if (tc >= 50 and detailtabsection ne 'Concierge Ratings' and 
+		variable ne 'evchhigh') or
+ 		(tc >=30 and variable = 'evchhigh') or 
+ 		(tc > 0 and detailtabsection = 'Concierge Ratings') then do;
+ 			p5_t = catt(p5,perc);
+ 			p4_t = catt(p4,perc);
+ 			p3_t = catt(p3,perc);
+ 			p2_t = catt(p2,perc);
+ 			p1_t = catt(p1,perc);
+ 			avg_t = put(avg,8.1);
+ 		end;
+ 		else if tc = 0 then do;
+ 			p5_t = '-';
+ 			p4_t = '-';
+ 			p3_t = '-';
+ 			p2_t = '-';
+ 			p1_t = '-';
+ 			avg_t = '-';
+ 		end;
+ 		else if (tc > 0 and tc < 50 and detailtabsection ne 'Concierge Ratings' and variable ne 'evchhigh') or
+ 		(tc > 0 and tc < 30 and variable = 'evchhigh') then do;
+ 			p5_t = 'TF';
+ 			p4_t = 'TF';
+ 			p3_t = 'TF';
+ 			p2_t = 'TF';
+ 			p1_t = 'TF';
+ 			avg = 'TF';
+ 		end;
+ 		if (df >= 50 and detailtabsection ne 'Concierge Ratings' and variable ne 'evchhigh') or
+ 		   (df >=30 and variable = 'evchhigh') or (df > 0 and detailtabsection = 'Concierge Ratings') 
+		then p5f_t = catt(p5f,perc);
+
+		else if df = 0 then p5f_t = '-';
+
+		else if (df > 0 and df < 50 and detailtabsection ne 'Concierge Ratings' and variable ne 'evchhigh') or
+ 				(df > 0 and df < 30 and variable = 'evchhigh') 
+		then p5f_t = 'TF';
+
+		if (dnf >= 50 and detailtabsection ne 'Concierge Ratings' and variable ne 'evchhigh') or
+ 		   (dnf >=30 and variable = 'evchhigh') or 
+ 		   (dnf > 0 and detailtabsection = 'Concierge Ratings') 
+		then p5nf_t = catt(p5nf,perc);
+
+		else if dnf = 0 then p5nf_t = '-';
+
+		else if (dnf > 0 and dnf < 50 and detailtabsection ne 'Concierge Ratings' and variable ne 'evchhigh') or
+ 				(dnf > 0 and dnf < 30 and variable = 'evchhigh') 
+		then p5nf_t = 'TF';
+
+		if (dc >= 50 and detailtabsection ne 'Concierge Ratings' and variable ne 'evchhigh') or
+ 		   (dc >=30 and variable = 'evchhigh') or 
+ 		   (dc > 0 and detailtabsection = 'Concierge Ratings') 
+		then p5c_t = catt(p5c,perc);
+
+		else if dc = 0 then p5c_t = '-';
+
+		else if (dc > 0 and dc < 50 and detailtabsection ne 'Concierge Ratings' and variable ne 'evchhigh') or
+ 				(dc > 0 and dc < 30 and variable = 'evchhigh') 
+		then p5c_t = 'TF';
+
+		if (dnc >= 50 and detailtabsection ne 'Concierge Ratings' and variable ne 'evchhigh') or
+ 		   (dnc >=30 and variable = 'evchhigh') or 
+ 		   (dnc > 0 and detailtabsection = 'Concierge Ratings') 
+		then p5nc_t = catt(p5nc,perc);
+
+		else if dnc = 0 then p5nc_t = '-';
+
+		else if (dnc > 0 and dnc < 50 and detailtabsection ne 'Concierge Ratings' and variable ne 'evchhigh') or
+ 				(dnc > 0 and dnc < 30 and variable = 'evchhigh') 
+		then p5nc_t = 'TF';
+	run;
+ 
+**********************************************************************************************;
+* Merge all columns together 
+;
+**********************************************************************************************;
+ 	data ex2 (rename=(_yvar = highestavg));
+ 		format _yvar $8.; 
+ 		merge ex1 allsql1;
+ 		_yvarx = round(highestavg,.1);
+ 		_yvar = put(_yvarx,8.1);
+ 		drop highestavg;
+ 	run;
+ 
+**********************************************************************************************;
+* Non-Satisfactory Items 
+;
+**********************************************************************************************;
+ 	data rpt6;
+ 		set scanned (keep=&vvars) end=last;
+ 		total = sum(%do j = 1 %to 19; &&v&j , %end; %do h = 20 %to 20; 
+		&&v&h %end;);
+ 		a + total;
+ 		b = 1;
+ 		keep a b a1-a20 b1-b20;
+ 		array _z (*) %do j = 1 %to 20; &&v&j %end;;
+ 		array _x{*} a1 - a20;
+ 		do r = 1 to 20;
+ 			if _z(r) > 0 then _x(r) + 1;
+		 end;
+	 	if last then do;
+ 			array _y{*} b1 - b20;
+			do j = 1 to 20;
+	 			if _x(j) > 0 then _y(j) = round(_x(j) / a,.01);
+			end;
+ 			output;
+ 		end;
+ 	run;
+*********************************************************************************************;
+ * The data is changed from Wide to Long 
+;
+**********************************************************************************************; 
+ 	proc transpose data=rpt6 out=rpt6a (keep=col1 rename=(col1 = n1));
+ 		var a a1-a20;
+ 	run;
+
+	proc transpose data=rpt6 out=rpt6b (keep=col1 rename=(col1 = p1));
+ 		var b b1-b20;
+ 	run;
+
+	proc sql;
+ 		create table mins1 as select
+ 		min(itemdata) as mins , 'Non-Satisfactory Items' as label from 
+		sasrptdata where varname = 'nstotal' and itemname = 'Count' and 
+		fiscalyear = 2019 and route = "&route" and ship = "&ship";
+ 	quit;
+ 
+**********************************************************************************************;
+ * Build Large Query that contains 20 different queries stacked on to each other ;
+ 
+**********************************************************************************************; 
+ 	proc sql;
+ 		create table mins as 
+ 		%do f = 1 %to %eval(&q-1);
+ 			select
+ 			max(min(itemdata),0) as mins, "&&lab&f" as label, &f as num 
+			from sasrptdata where varname = "&&v&f" and itemname = 'Count' and 
+			fiscalyear = 2019 and route = 'Bahamas'
+			union
+ 		%end;
+ 		select
+ 			max(min(itemdata),0) as mins, "&&lab&q" as label, &q as num 
+			from sasrptdata where varname = "&&v&q" and itemname = 'Count' and 
+			fiscalyear = 2019 and route = 'Bahamas'
+ 		order by num;
+	quit;
+
+	data allmins (keep=mins label);
+ 		set mins1 mins;
+	run;
+ 
+**********************************************************************************************;
+ * Combine the queries into 1 table 
+;
+**********************************************************************************************; 
+
+	data report6;
+	 	merge allmins rpt6a rpt6b;
+ 	run;
+
+	proc datasets lib=work nodetails;
+ 		delete rpt2a rpt2b allmins;
+ 	run;
+ 
+**********************************************************************************************;
+* For the Entertainment Report - Needs to Broken out by Category 
+;
+**********************************************************************************************;
+ 	data report8;
+ 		set ex2;
+ 		if DetailTabReportOrder = 8;
+	run;
+
+ 	proc sort data=report8;
+ 		by detailtabreportsuborder detailtabsectionorder;
+ 	run;
+
+	data report8a;
+ 		set report8;
+ 		increment + .01;
+ 		by detailtabreportsuborder detailtabsectionorder;
+ 		if first.detailtabreportsuborder then increment = .01;
+ 		ord = detailtabreportsuborder + increment;
+ 	run;
+
+	proc sort;
+	 	by ord;
+ 	run;
+
+	proc sort data = report8 out=report8h nodupkey;
+ 		by detailtabreportsuborder;
+ 	run;
+
+	data report8h;
+ 		length label $100.;
+ 		set report8h (keep=detailtabreportsuborder DetailTabSubSection);
+ 		ord + 1;
+ 		detailtabreportorder = 8;
+ 		label = DetailTabSubSection;
+ 		drop DetailTabSubSection;
+ 	run;
+
+	proc sql;
+ 		create table empty as select max(ord) + .01 as ord, 8 as 
+		detailtabreportorder from report8a
+ 		group by detailtabreportsuborder;
+ 	quit;
+ 
+ 
+**********************************************************************************************;
+* Combine the queries into 1 table 
+;
+**********************************************************************************************;
+ 	data report8 (rename=(ord=detailtabsectionorder));
+ 		merge report8a (drop=detailtabsectionorder) report8h empty;
+ 		by ord;
+ 	run;
+
+	data report8;
+		set report8 end=last;
+ 		if _n_ = 1 or last then delete;
+ 	run;
+ 
+**********************************************************************************************;
+* Determine if other Reports with Sections 
+;
+**********************************************************************************************;
+ 	proc freq data=ex1 noprint;
+ 		where DetailTabReportOrder ne 8;
+ 		tables DetailTabReportOrder * DetailTabReportSubOrder / 
+		out=dividerows;
+ 	run;
+
+	proc sort data=dividerows;
+ 		by DetailTabReportOrder;
+ 	run;
+
+	data dividerows;
+ 		set dividerows;
+ 		by DetailTabReportOrder;
+ 		if not(first.DetailTabReportOrder and last.DetailTabReportOrder);
+ 	run;
+
+	proc sort data=dividerows nodupkey;
+ 		by DetailTabReportOrder;
+ 	run;
+
+	data _null_;
+ 		set dividerows end=last;
+ 		if last then call symputx('d',_n_);
+ 	run;
+
+	proc sql;
+ 		select DetailTabReportOrder into :div1 - :div&d from dividerows;
+ 		select DetailTabReportOrder into :divs separated by ',' from dividerows;
+ 	quit;
+
+	data ex3;
+ 		set ex2;
+ 		if DetailTabReportOrder not in (8,&divs);
+ 	run;
+
+	%do j=1 %to &d;
+
+		data data&j;
+ 			set ex2;
+			if DetailTabReportOrder = &&div&j;
+ 		run;
+
+		proc sql;
+ 			create table xminus&j as select max(DetailTabReportSubOrder) 
+			- .5 as ord from data&j union
+			select DetailTabReportSubOrder + .5 as ord from data&j;
+		quit;
+
+		data xminus&j;
+ 			set xminus&j end=last;
+			if last then delete;
+ 		run;
+
+		proc sql;
+ 			create table empty as select ord as DetailTabReportSubOrder, 
+			&&div&j as detailtabreportorder from xminus&j;
+		quit;
+
+		proc sort data=data&j;
+ 			by DetailTabReportSubOrder;
+ 		run;
+
+		data report&j;
+ 			merge data&j (drop=detailtabsectionorder) empty;
+			by DetailTabReportSubOrder detailtabreportorder;
+			detailtabsectionorder + 1;
+ 		run;
+
+		data ex3;
+ 			set ex3 report&j;
+ 		run;
+
+		proc print;
+ 		title 'Ex3';
+ 		run;
+ 		title;
+
+	%end;
+ 
+ 	data ex3;
+ 		set ex3 report8;
+ 	run;
+ 
+********************************************************************************************;
+* Problem Resolution Code
+********************************************************************************************;
+ 
+**********************************************************************************************;
+* This data output is from a different dataset - easier to use SQL 
+here ;
+**********************************************************************************************;
+ 	proc sql;
+ 		%do f = 1 %to &s;
+ 			create table sqldata&f as select
+ 			min(itemdata) as benchmark from sasrptdata where varname = 
+			&&sqlprobs&f and itemname = 'Count' and fiscalyear = 2019 and route = 
+			'Bahamas' and ship='Magic';
+ 		%end;
+ 	quit;
+ 
+**********************************************************************************************;
+* Add Each Query from Above on top of the next to create multiple Rows of data in ALLSQL1 ;
+**********************************************************************************************;
+ 	data allsql2;
+ 		set %do g = 1 %to &s;
+ 				sqldata&g
+ 			%end;;
+ 	run;
+ 
+ 
+********************************************************************;
+* THE Problem Resolution REPORT VARIABLES
+* Total Count where variable > 0 = TC 
+* Handled Excellent = N5 
+* Handled Very Good = N4 
+* Handled Good = N3 
+* Handled OK or POOR = N2 
+* TOTAL Reported / Told = DREP 
+* Total NOT REPORTED = NNR
+* Overall Excellent = O5
+* Overall Okay or Poor = O2 
+********************************************************************;
+%let z1 = tc:;
+%let z2 = n5:;
+%let z3 = n4:;
+%let z4 = n3:;
+%let z5 = n2:;
+%let z6 = drep:;
+%let z7 = nr:;
+%let z8 = o5:;
+%let z9 = o2:;
+%let zpre1 = tc;
+%let zpre2 = n5;
+%let zpre3 = n4;
+%let zpre4 = n3;
+%let zpre5 = n2;
+%let zpre6 = drep;
+%let zpre7 = nr;
+%let zpre8 = o5;
+%let zpre9 = o2; 
+
+	data rpt15;
+ 		set scanned (keep=&svars prhandle prtell overall) end=last;
+ 		drop &svars overall prhandle prtell;
+ 		array _a1 (*) &svars;
+ 		array _b1 (*) tc1 - tc&s;
+ 		array _b2 (*) n5_1 - n5_&s;
+ 		array _b3 (*) n4_1 - n4_&s;
+ 		array _b4 (*) n3_1 - n3_&s;
+ 		array _b5 (*) n2_1 - n2_&s;
+ 		array _b6 (*) drep1 - drep&s;
+ 		array _b7 (*) nr1 - nr&s;
+ 		array _b8 (*) o5_1 - o5_&s;
+ 		array _b9 (*) o2_1 - o2_&s; 
+ 		do i = 1 to dim(_a1); 
+ 			_xtotal + _a1(i);
+ 			if _a1(i) > 0 then _b1(i) + 1;
+ 			if prhandle = 5 and _a1(i) = 1 then _b2(i) + 1;
+ 			if prhandle = 4 and _a1(i) = 1 then _b3(i) + 1;
+ 			if prhandle = 3 and _a1(i) = 1 then _b4(i) + 1;
+ 			if prhandle in (1,2) and _a1(i) = 1 then _b5(i) + 1;
+ 			if ((_a1(i) = 1 and prtell = 1) or (prhandle not = . and _a1(i) = 1)) then _b6(i) + 1;
+ 			if ((prtell = 2 and _a1(i) = 1 and prhandle = .) or (_a1(i) = 1 and prtell = . and prhandle = .)) then _b7(i) + 1;
+ 			if overall = 5 and _a1(i) = 1 then _b8(i) + 1;
+ 			if overall in (1,2) and _a1(i) = 1 then _b9(i) + 1; 
+ 		end;
+ 		if last then do;
+ 			array _all (*) _numeric_;
+ 			do k=1 to dim(_all);
+ 				if _all(k) = . then _all(k) = 0;
+ 			end;
+ 			call symputx('gtotal',_xtotal);
+ 			output;
+ 		end;
+ 	run;
+
+%do r = 1 %to 9;
+
+	proc transpose data=rpt15 (keep=&&z&r) out=trans&r (drop=_name_ rename=(col1 = &&zpre&r));
+ 	run;
+
+	data prob;
+ 		merge prob trans&r;
+ 	run;
+
+%end;
+
+	data rpt15;
+ 		merge prob allsql2;
+ 	run;
+
+	data rpt15;
+		set rpt15;
+		if &gtotal gt 0 then ptotal = round(tc / &gtotal,.01) * 100;
+ 		else ptotal = -9;
+ 		if drep > 0 then do;
+ 			p5 = round(n5 / drep,.01) * 100;
+			p4 = round(n4 / drep,.01) * 100;
+			p3 = round(n3 / drep,.01) * 100;
+			p2 = round(n2 / drep,.01) * 100;
+		end;
+		else do;
+ 			p5 = -9;
+			p4 = -9;
+			p3 = -9;
+			p2 = -9;
+		end;
+		if tc > 0 then do;
+ 			pnr = round(nr / tc,.01) * 100;
+			po5 = round(o5 / tc,.01) * 100;
+			po2 = round(o2 / tc,.01) * 100;
+		end;
+		else do;
+ 			pnr = -9;
+			po5 = -9;
+			po2 = -9;
+		end;
+		perc = '%';
+		if &gtotal gt 0 then ptotal_t = catt(ptotal,perc);
+ 		else ptotal_t = '-';
+		if drep > 0 then do;
+ 			p5_t = catt(p5,perc);
+			p4_t = catt(p4,perc);
+			p3_t = catt(p3,perc);
+			p2_t = catt(p2,perc);
+		end;
+		else do;
+ 			p5_t = '-';
+			p4_t = '-';
+			p3_t = '-';
+			p2_t = '-';
+		end;
+		if tc > 0 then do;
+		 	pnr_t = catt(pnr,perc);
+			po5_t = catt(po5,perc);
+			po2_t = catt(po2,perc);
+		end;
+		else do;
+ 			pnr_t = '-';
+			po5_t = '-';
+			po2_t = '-';
+		end;
+ 	run;
+
+	proc sort data=rpt15;
+		by detailtabreportsuborder detailtabsectionorder;
+ 	run;
+
+	data rpt15;
+ 		set rpt15;
+ 		increment + .01;
+ 		by detailtabreportsuborder detailtabsectionorder;
+ 		if first.detailtabreportsuborder then increment = .01;
+ 		ord = detailtabreportsuborder + increment;
+ 	run;
+
+	proc sort data=rpt15;
+ 		by ord;
+ 	run;
+
+	proc sort data = rpt15 out=probh nodupkey;
+		by detailtabreportsuborder;
+ 	run;
+
+	data probh;
+	 	length label $100.;
+ 		set probh (keep=detailtabreportsuborder DetailTabSubSection);
+ 		ord + 1;
+ 		label = DetailTabSubSection;
+ 		drop DetailTabSubSection;
+ 	run;
+
+	proc sql;
+ 		create table empty as select max(ord) + .01 as ord from rpt15
+ 		group by detailtabreportsuborder;
+ 	quit;
+
+	data report15;
+	 	merge rpt15 probh empty;
+ 		by ord;
+ 	run;
+
+	proc print;
+ 		title 'Report 15';
+ 	run;
+ 	title;
+ 
+******************************************************************************************************************;
+* This section is for Reports That are Separate Calculations and have different Headings
+******************************************************************************************************************;
+ 
+**********************************************************************************************;
+* This data output is outside the multiple variations of 
+questions in big part of the report - Detail Sheet ;
+* The statement IF LAST ... refers to the last record in the 
+data, so at the TOTAL - LEVEL (SUMMED ) is ;
+* where the data is calculated 
+;
+* Since there is only 1 value being evaluated - MOTION - No need 
+array group processing ;
+**********************************************************************************************;
+
+	data motion (keep=label cnt _p1 _p2);
+	 	length _p2 $1040;
+ 		set scanned (keep=motion) end=last;
+ 		perc = '%';
+ 		label = 'Ship motion negatively impacted experience';
+ 		if motion > 0 then cnt + 1;
+ 		if motion in (1,2) then cnt_1_2 + 1;
+ 		if motion = 1 then cnt_1 + 1;
+ 		if motion = 2 then cnt_2 + 1;
+ 		if last then do;
+ 			if cnt_1_2 >= 50 then p_1 = round(cnt_1/cnt_1_2,.01) * 100;
+ 			if cnt_1_2 >= 50 then p_2 = round(cnt_2/cnt_1_2,.01) * 100;
+ 			if p_1 = . then _p1 = 'TF';
+ 			else _p1 = catt(p_1,perc);
+ 			if p_2 = . then _p2 = 'TF';
+ 			else _p2 = cats(p_2,perc);
+ 			output;
+ 		end;
+	run;
+**********************************************************************************************;
+* This data output is outside the multiple variations of 
+questions in big part of the report - Detail Sheet ;
+* The statement IF LAST .... refers to the last record in the 
+data, so at the TOTAL - LEVEL (SUMMED ) is ;
+* where the data is calculated 
+;
+* Since there is only 1 value being evaluated - DEMULTIOTHER - No need array group processing ;
+**********************************************************************************************;
+	data guestinfo (keep=label cnt _p1 _p2);
+ 		length _p2 _p1 $1040;
+ 		set scanned (keep=demultiother) end=last;
+ 		perc = '%';
+ 		label = 'Ever taken a multi-day cruise with another cruise line';
+ 		if demultiother > 0 then cnt + 1;
+ 		if demultiother in (1,2) then cnt_1_2 + 1;
+ 		if demultiother = 1 then cnt_1 + 1;
+ 		if demultiother = 2 then cnt_2 + 1;
+ 		if last then do;
+ 			if cnt_1_2 >= 50 then p_1 = round(cnt_1/cnt_1_2,.01) * 100;
+ 			if cnt_1_2 >= 50 then p_2 = round(cnt_2/cnt_1_2,.01) * 100;
+ 			if p_1 = . then _p1 = 'TF';
+ 			else _p1 = catt(p_1,perc);
+ 			if p_2 = . then _p2 = 'TF';
+ 			else _p2 = cats(p_2,perc);
+ 			output;
+ 		end;
+	run;
+**********************************************************************************************;
+* This data output is outside the multiple variations of 
+questions in big part of the report - Detail Sheet ;
+* The statement IF LAST .... refers to the last record in the 
+data, so at the TOTAL - LEVEL (SUMMED ) is ;
+* where the data is calculated 
+;
+* Since there is only 1 value being evaluated - DECHILDS - No 
+need array group processing ;
+**********************************************************************************************;
+
+	data grouptype (keep=label cnt_ _p1 _p2);
+ 		length _p1 _p2 $1040;
+ 		set scanned (keep=dechilds) end=last;
+ 		perc = '%';
+ 		label = 'Group type';
+ 		if dechilds > 0 then cnt + 1;
+ 		if dechilds = 1 then cnt_1 + 1;
+ 		if dechilds = 2 then cnt_2 + 1;
+ 		if last then do;
+ 			if cnt >= 50 and cnt_1 ne . then p_1 = round(cnt_1/cnt,.01) * 100;
+ 			if cnt >= 50 and cnt_2 ne . then p_2 = round(cnt_2/cnt,.01) * 100;
+ 			if p_1 = . then _p1 = 'TF';
+ 			else _p1 = catt(p_1,perc);
+ 			if p_2 = . then _p2 = 'TF';
+ 			else _p2 = cats(p_2,perc);
+ 			cnt_ = ' ';
+ 			output;
+ 		end;	
+	run;
+**********************************************************************************************;
+* This data output is outside the multiple variations of 
+questions in big part of the report - Detail Sheet ;
+* The statement IF LAST ... refers to the last record in the 
+data, so at the TOTAL - LEVEL (SUMMED ) is ;
+* where the data is calculated 
+;
+* Since there is only 1 value being evaluated - DENUMCRUISES - No 
+need array group processing ;
+**********************************************************************************************;
+data numcr (keep=label cnt _p: _c:);
+	length _c1 _p1 _p2 _p3 _p4 _p5 $1040;
+	set scanned (keep=denumcruises) end=last;
+	perc = '%';
+	label = 'Number of DCL Cruises taken';
+
+	if denumcruises > 0 then
+		cnt + 1;
+
+	if denumcruises = 1 then
+		cnt_1 + 1;
+
+	if denumcruises = 2 then
+		cnt_2 + 1;
+
+	if denumcruises = 3 then
+		cnt_3 + 1;
+
+	if denumcruises = 4 then
+		cnt_4 + 1;
+
+	if denumcruises = 5 then
+		cnt_5 + 1;
+
+	if last then
+		do;
+			if cnt >= 50 then
+				c_1 = cnt;
+
+			if cnt >= 50 and cnt_1 ne . then
+				p_1 = round(cnt_1/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_2 ne . then
+				p_2 = round(cnt_2/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_3 ne . then
+				p_3 = round(cnt_3/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_4 ne . then
+				p_4 = round(cnt_4/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_5 ne . then
+				p_5 = round(cnt_5/cnt,.01) * 100;
+
+			if c_1 = . then
+				_c1 = 'TF';
+			else _c1 = catt(c_1);
+
+			if p_1 = . then
+				_p1 = 'TF';
+			else _p1 = cats(p_1,perc);
+
+			if p_2 = . then
+				_p2 = 'TF';
+			else _p2 = cats(p_2,perc);
+
+			if p_3 = . then
+				_p3 = 'TF';
+			else _p3 = cats(p_3,perc);
+
+			if p_4 = . then
+				_p4 = 'TF';
+			else _p4 = cats(p_4,perc);
+
+			if p_5 = . then
+				_p5 = 'TF';
+			else _p5 = cats(p_5,perc);
+			output;
+		end;
+run;
+
+**********************************************************************************************;
+
+* This data output is outside the multiple variations of 
+questions in big part of the report - Detail Sheet;
+
+* The variables _c1 is the total Count, _p1 - _p5 are the % 
+values based on number of cruises taken;
+
+* The statement IF LAST .... refers to the last record in the 
+data, so at the TOTAL - LEVEL (SUMMED ) is;
+
+* where the data is calculated 
+;
+
+* Since there is only 1 value being evaluated - DEWILREC - No 
+need array group processing;
+
+**********************************************************************************************;
+data reccr1 (keep=label cnt _p: _c:);
+	length _c1 _p1 _p2 _p3 _p4 _p5 $1040;
+	set scanned (keep=dewilrec) end=last;
+	perc = '%';
+	label = 'Will recommend DCL vacation';
+
+	if dewilrec > 0 then
+		cnt + 1;
+
+	if dewilrec = 1 then
+		cnt_1 + 1;
+
+	if dewilrec = 2 then
+		cnt_2 + 1;
+
+	if dewilrec = 3 then
+		cnt_3 + 1;
+
+	if dewilrec = 4 then
+		cnt_4 + 1;
+
+	if dewilrec = 5 then
+		cnt_5 + 1;
+
+	if last then
+		do;
+			if cnt >= 50 then
+				c_1 = cnt;
+
+			if cnt >= 50 and cnt_1 ne . then
+				p_1 = round(cnt_1/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_2 ne . then
+				p_2 = round(cnt_2/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_3 ne . then
+				p_3 = round(cnt_3/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_4 ne . then
+				p_4 = round(cnt_4/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_5 ne . then
+				p_5 = round(cnt_5/cnt,.01) * 100;
+
+			if c_1 = . then
+				_c1 = 'TF';
+			else _c1 = catt(c_1);
+
+			if p_1 = . then
+				_p1 = 'TF';
+			else _p1 = cats(p_1,perc);
+
+			if p_2 = . then
+				_p2 = 'TF';
+			else _p2 = cats(p_2,perc);
+
+			if p_3 = . then
+				_p3 = 'TF';
+			else _p3 = cats(p_3,perc);
+
+			if p_4 = . then
+				_p4 = 'TF';
+			else _p4 = cats(p_4,perc);
+
+			if p_5 = . then
+				_p5 = 'TF';
+			else _p5 = cats(p_5,perc);
+			output;
+		end;
+run;
+
+**********************************************************************************************;
+
+* This data output is outside the multiple variations of 
+questions in big part of the report - Detail Sheet;
+
+* The statement IF LAST .... refers to the last record in the 
+data, so at the TOTAL - LEVEL (SUMMED ) is;
+
+* where the data is calculated 
+;
+
+* Since there is only 1 value being evaluated - DEVAC5Y - No need 
+array group processing;
+
+**********************************************************************************************;
+data reccr2 (keep=label cnt _p: _c:);
+	length _c1 _p1 _p2 _p3 _p4 _p5 $1040;
+	set scanned (keep=devac5y) end=last;
+	perc = '%';
+	label = 'Will take another DCL vacation in next 5 years';
+
+	if devac5y > 0 then
+		cnt + 1;
+
+	if devac5y = 1 then
+		cnt_1 + 1;
+
+	if devac5y = 2 then
+		cnt_2 + 1;
+
+	if devac5y = 3 then
+		cnt_3 + 1;
+
+	if devac5y = 4 then
+		cnt_4 + 1;
+
+	if devac5y = 5 then
+		cnt_5 + 1;
+
+	if last then
+		do;
+			if cnt >= 50 then
+				c_1 = cnt;
+
+			if cnt >= 50 and cnt_1 ne . then
+				p_1 = round(cnt_1/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_2 ne . then
+				p_2 = round(cnt_2/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_3 ne . then
+				p_3 = round(cnt_3/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_4 ne . then
+				p_4 = round(cnt_4/cnt,.01) * 100;
+
+			if cnt >= 50 and cnt_5 ne . then
+				p_5 = round(cnt_5/cnt,.01) * 100;
+
+			if c_1 = . then
+				_c1 = 'TF';
+			else _c1 = catt(c_1);
+
+			if p_1 = . then
+				_p1 = 'TF';
+			else _p1 = cats(p_1,perc);
+
+			if p_2 = . then
+				_p2 = 'TF';
+			else _p2 = cats(p_2,perc);
+
+			if p_3 = . then
+				_p3 = 'TF';
+			else _p3 = cats(p_3,perc);
+
+			if p_4 = . then
+				_p4 = 'TF';
+			else _p4 = cats(p_4,perc);
+
+			if p_5 = . then
+				_p5 = 'TF';
+			else _p5 = cats(p_5,perc);
+			output;
+		end;
+run;
+
+data reccr;
+	set reccr1 reccr2;
+run;
+
+*********************************************************************************************;
+
+* This data output is outside the multiple variations of 
+questions in big part of the report - Detail Sheet;
+
+* The statement IF LAST .... refers to the last record in the 
+data, so at the TOTAL - LEVEL (SUMMED ) is;
+
+* where the data is calculated 
+;
+
+* Since there is only 1 value being evaluated - PRESSXL - No need 
+array group processing;
+
+*********************************************************************************************;
+data pressure (keep=label cnt _p: _c:);
+	length _c1 _p1 _p2 _p3 $1040;
+	set scanned (keep=pressxl) end=last;
+	perc = '%';
+	label = "Felt pressured to provide 'Excellent' ratings";
+
+	if pressxl > 0 then
+		cnt + 1;
+
+	if pressxl = 1 then
+		cnt_1 + 1;
+
+	if pressxl = 2 then
+		cnt_2 + 1;
+
+	if pressxl = . then
+		cnt_3 + 1;
+	all + 1;
+
+	if last then
+		do;
+			if cnt >= 50 then
+				c_1 = cnt;
+
+			if all >= 50 and cnt_1 ne . then
+				p_1 = round(cnt_1/all,.01) * 100;
+
+			if all >= 50 and cnt_2 ne . then
+				p_2 = round(cnt_2/all,.01) * 100;
+
+			if all >= 50 and cnt_3 ne . then
+				p_3 = round(cnt_3/all,.01) * 100;
+
+			if c_1 = . then
+				_c1 = 'TF';
+			else _c1 = catt(c_1);
+
+			if p_1 = . then
+				_p1 = 'TF';
+			else _p1 = cats(p_1,perc);
+
+			if p_2 = . then
+				_p2 = 'TF';
+			else _p2 = cats(p_2,perc);
+
+			if p_3 = . then
+				_p3 = 'TF';
+			else _p3 = cats(p_3,perc);
+			output;
+		end;
+run;
+
+**********************************************************************
+*****************************************;
+
+* This is the Problem Detail Report
+
+**********************************************************************
+*****************************************;
+proc sql;
+	create table pr1 as
+		select 'Did you have any problems or difficulties' as label, 1 
+			as pos, count(id) as cnt from scanned where prprob = 1 union
+				select 'If yes, did you tell anyone about problem' as label, 2 
+					as pos, count(id) as cnt from scanned where prtell = 1;
+	create table pr2 as 
+		select 1 as pos, count(id) as denom from scanned where prprob > 0 
+			union
+		select 2 as pos, count(id) as denom from scanned where prtell > 0;
+	create table pr3 as 
+		select 1 as pos, min(itemdata) as stat1 from sasrptdata where 
+			varname = 'prprob' and itemname = 'Yes' and fiscalyear = 2019 and 
+			route = 'Bahamas' and ship='Magic';
+	create table pr4 as 
+		select 2 as pos, max(itemdata) as stat1 from sasrptdata where 
+			varname = 'prtell' and itemname = 'Yes' and fiscalyear = 2019 and 
+			route = 'Bahamas' and ship='Magic';
+quit;
+
+proc sort data=pr1;
+	by pos;
+run;
+
+proc sort data=pr2;
+	by pos;
+run;
+
+proc sort data=pr3;
+	by pos;
+run;
+
+proc sort data=pr4;
+	by pos;
+run;
+
+data prprob;
+	length perc2 stat2_ $1040;
+	merge pr1 pr2 pr3 pr4;
+	by pos;
+	perc1 = round(cnt/denom,.01) * 100;
+	perc = '%';
+	perc2 = catt(perc1,perc);
+	stat2 = round(stat1,.01) * 100;
+	stat2_= catt(stat2,perc);
+run;
+
+***************************************************************************************************************;
+
+* This is the Country Detail Report
+***************************************************************************************************************;
+
+**********************************************************************************************;
+
+* This report is for the section of Report Detail that is identified 
+by Country;
+
+**********************************************************************************************;
+**********************************************************************************************;
+* Below are the variables used in the questions 
+;
+**********************************************************************************************;
+%let v1 = overall;
+%let v2 = ovprvalu;
+%let v3 = crewovex;
+%let v4 = fbovdine;
+%let v5 = entovexp;
+%let v6 = dewilrec;
+%let v7 = devac5y;
+%let v8 = availlang;
+
+**********************************************************************************************;
+* Create an 8 X 18 Grid 
+;
+**********************************************************************************************;
+data rpt3;
+	set scanned end=last;
+	keep a1-a18 b1-b18 c1-c18 d1-d18 e1-e18 f1-f18 g1-g18 h1-h18 
+		i1-i12 j1-j12 k1-k12 l1-l12 m1-m12 n1-n12 o1-o12 p1-p12;
+	array _z (*) %do j = 1 %to 8;
+	&&v&j
+	%end;;
+
+	array _x{8,18} a1 - a18 b1 - b18 c1 - c18 d1 - d18 e1 - e18 
+		f1 - f18 g1 - g18 h1 - h18;
+
+	do r = 1 to 8;
+		if _z(r) > 0 then
+			_x(r,1) + 1;
+
+		if _z(r) > 0 and deloc < 100 and deloc ne . then
+			_x(r,2) + 1;
+
+		if _z(r) > 0 and deloc = 108 then
+			_x(r,3) + 1;
+
+		if _z(r) > 0 and deloc = 109 then
+			_x(r,4) + 1;
+
+		if _z(r) > 0 and deloc = 148 then
+			_x(r,5) + 1;
+
+		if _z(r) > 0 and deloc = 155 then
+			_x(r,6) + 1;
+
+		if _z(r) = 5 then
+			_x(r,7) + 1;
+
+		if _z(r) = 5 and deloc < 100 and deloc ne . then
+			_x(r,8) + 1;
+
+		if _z(r) = 5 and deloc = 108 then
+			_x(r,9) + 1;
+
+		if _z(r) = 5 and deloc = 109 then
+			_x(r,10) + 1;
+
+		if _z(r) = 5 and deloc = 148 then
+			_x(r,11) + 1;
+
+		if _z(r) = 5 and deloc = 155 then
+			_x(r,12) + 1;
+
+		if _z(r) in (4,5) then
+			_x(r,13) + 1;
+
+		if _z(r) in (4,5) and deloc < 100 and deloc ne . then
+			_x(r,14) + 1;
+
+		if _z(r) in (4,5) and deloc = 108 then
+			_x(r,15) + 1;
+
+		if _z(r) in (4,5) and deloc = 109 then
+			_x(r,16) + 1;
+
+		if _z(r) in (4,5) and deloc = 148 then
+			_x(r,17) + 1;
+
+		if _z(r) in (4,5) and deloc = 155 then
+			_x(r,18) + 1;
+	end;
+
+	if last then
+		do;
+			array _xx(*) _numeric_;
+
+			do g = 1 to dim(_xx);
+				if _xx(g) = . then
+					_xx(g) = 0;
+			end;
+
+			array _y{8,12} i1 - i12 j1 - j12 k1 - k12 l1 - l12 m1 - m12 
+				n1 - n12 o1 - o12 p1 - p12;
+
+			do j = 1 to 8;
+				do k = 1 to 6;
+					if _x(j,k+6) >= 50 then
+						_y(j,k) = round(_x(j,k+6) / _x(j,k),.01) * 100;
+					else if _x(j,k+6) = 0 then
+						_y(j,k) = -9;
+				end;
+
+				do b = 7 to 12;
+					if _x(j,b+6) >= 50 then
+						_y(j,b) = round(_x(j,b+6) / _x(j,b-6),.01) * 100;
+					else if _x(j,b+6) = 0 then
+						_y(j,b) = -9;
+				end;
+			end;
+
+			output;
+		end;
+run;
+
+%let d1=i;
+%let d2=j;
+%let d3=k;
+%let d4=l;
+%let d5=m;
+%let d6=n;
+%let d7=o;
+%let d8=p;
+
+**********************************************************************************************;
+* There are 16 Rows Total by 6 Columns - 2 Parts of 8 questions 
+;
+**********************************************************************************************;
+data %do v=1 %to 8;
+	rpt3a_&v (keep=&&d&v..1 - &&d&v..6 rename=
+		(
+
+		%do;
+			g=1 %to 6;
+		&&d&v..&g = p&g
+		%end;
+	)) rpt3b_&v (keep=&&d&v..7 - &&d&v..12 rename= (%do h=7 %to 12; &&d&v..&h = p%eval(&h-6)
+	%end;
+	))
+	%end;;
+
+	set rpt3;
+
+	%do d = 1 %to 8;
+		output rpt3a_&d
+			rpt3b_&d;
+	%end;
+run;
+
+proc format;
+	value live 
+		1-99 = 2
+		108 = 3
+		109 = 4
+		148 = 5
+		155 = 6
+		other = 7;
+run;
+
+**********************************************************************
+************************;
+
+* Get Distribution of where people live using FREQ and break down 
+along format above;
+
+**********************************************************************
+************************;
+proc freq data=scanned;
+	where deloc > 0;
+	tables deloc / out=freq_live;
+	format deloc live.;
+run;
+
+data freq_live;
+	set freq_live;
+	a='All';
+run;
+
+**********************************************************************
+************************;
+
+* Create Multi-Column vs. Multiple Rows 
+;
+
+**********************************************************************
+************************;
+proc transpose data=freq_live out=freq_live prefix=p;
+	by a;
+	id deloc;
+	var percent;
+run;
+
+**********************************************************************
+************************;
+
+* The PREFIX Option above allows a designation to be placed in front 
+of value, so p2 - p6 is what is kept;
+
+**********************************************************************
+************************;
+data freq_live;
+	set freq_live (keep=p2-p6);
+	p1 = 100;
+	array _x(5) p2 - p6;
+
+	do j=1 to 5;
+		_x(j) = round(_x(j));
+	end;
+
+	drop j;
+run;
+
+data rpt3final;
+	set
+
+		%do x = 1 %to 8;
+			rpt3a_&x rpt3b_&x
+		%end;;
+run;
+
+data rpt3final (rename=(%do j = 1 %to 6; _p&j = p&j %end;));
+format _p1 - _p6 $8.;
+set freq_live rpt3final;
+perc = '%';
+array _y (*) p1 - p6;
+array _z (*) $ _p1 - _p6;
+
+do i = 1 to dim(_y);
+	if _y(i) = . then
+		_z(i) = 'TF';
+	else if _y(i) = -9 then
+		_z(i) = '-';
+	else _z(i) = catt(_y(i),perc);
+end;
+
+drop p1 - p6;
+run;
+
+**********************************************************************
+************************;
+
+* Create a Dataset that has all the Statements / Questions in order 
+based on how appears in Report;
+
+**********************************************************************
+************************;
+data template;
+	length label $100;
+	label = 'Where do you live? (of those who selected a location)';
+	output;
+	label = "Overall rating of cruise (Excellent)";
+	output;
+	label = "Overall rating of cruise (Excellent & Very Good)";
+	output;
+	label = "Overall price / value rating for cruise (Excellent)";
+	output;
+	label = "Overall price / value rating for cruise (Excellent & Very Good)";
+	output;
+	label = "Overall experience with Crew (Excellent)";
+	output;
+	label = "Overall experience with Crew (Excellent & Very Good)";
+	output;
+	label = "Overall Dining experience (Excellent)";
+	output;
+	label = "Overall Dining experience (Excellent & Very Good)";
+	output;
+	label = "Overall entertainment experience (Excellent)";
+	output;
+	label = "Overall entertainment experience (Excellent & Very Good)";
+	output;
+	label = "Will recommend DCL vacation (Definitely)";
+	output;
+	label = "Will recommend DCL vacation (Definitely and Probably)";
+	output;
+	label = "Will take another DCL vacation in the next 5 years (Definitely)";
+	output;
+	label = "Will take another DCL vacation in the next 5 years (Definitely and Probably)";
+	output;
+	label = "Availability info in preferred language (Excellent)";
+	output;
+	label = "Availability info in preferred language (Excellent & Very Good)";
+	output;
+run;
+
+data countryreport;
+	merge template rpt3final;
+run;
+
+%mend create_data_cube;
+
+Sample 5:
+	%macro create_rest;
+%let rest1 = animpalfq;
+%let rest2 = lumtritonfq;
+%let rest3 = rapunzelfq;
+%let restlabel1 = %str(Animator%'s);
+%let restlabel2 = %str(Triton%'s);
+%let restlabel3 = %str(Rapunzel%'s Royal Table);
+
+%do j = 1 %to 3;
+
+	proc summary data=scanned missing nway;
+		where fbfirstrest =&j and svcteam > 0 and fbfcserv > 0;
+		class fbfirstrest svcteam fbfcserv;
+		output out=sums;
+	run;
+
+	proc transpose data=sums out=sums1 prefix=_arate;
+		by fbfirstrest svcteam;
+		id fbfcserv;
+		var _freq_;
+	run;
+
+	data sums1;
+		set sums1;
+		perc='%';
+		array _x(5) _arate1 - _arate5;
+		array _y(5) $ a1 - a5;
+
+		do i = 1 to 5;
+			if _x(i) = . then
+				_x(i) = 0;
+			_y(i) = put(_x(i),8.);
+		end;
+
+		_adenom = sum(_arate1,_arate2,_arate3,_arate4,_arate5);
+
+		if _adenom > 0 then
+			_ap3 = round(_arate5/_adenom,.01) * 100;
+		else _ap3 = 0;
+		apercent = catt(_ap3,perc);
+		keep fbfirstrest svcteam a:;
+	run;
+
+	proc sort;
+		by fbfirstrest svcteam;
+	run;
+
+	proc summary data=scanned missing nway;
+		where fbfirstrest =&j and svcteam > 0 and fbovdine > 0;
+		class fbfirstrest svcteam fbovdine;
+		output out=sums;
+	run;
+
+	proc transpose data=sums out=sums2 prefix=_brate;
+		by fbfirstrest svcteam;
+		id fbovdine;
+		var _freq_;
+	run;
+
+	data sums2;
+		set sums2;
+		perc='%';
+		array _x(5) _brate1 - _brate5;
+		array _y(5) $ b1 - b5;
+
+		do i = 1 to 5;
+			if _x(i) = . then
+				_x(i) = 0;
+			_y(i) = put(_x(i),8.);
+		end;
+
+		_bdenom = sum(_brate1,_brate2,_brate3,_brate4,_brate5);
+
+		if _bdenom > 0 then
+			_bp3 = round(_brate5/_bdenom,.01) * 100;
+		else _bp3 = 0;
+		bpercent = catt(_bp3,perc);
+		keep fbfirstrest svcteam b:;
+	run;
+
+	proc sort;
+		by fbfirstrest svcteam;
+	run;
+
+	proc summary data=scanned missing nway;
+		where fbfirstrest =&j and svcteam > 0 and &&rest&j > 0;
+		class fbfirstrest svcteam &&rest&j;
+		output out=sums;
+	run;
+
+	proc transpose data=sums out=sums3 prefix=_crate;
+		by fbfirstrest svcteam;
+		id &&rest&j;
+		var _freq_;
+	run;
+
+	data sums3;
+		set sums3;
+		perc='%';
+		array _x(5) _crate1 - _crate5;
+		array _y(5) $ c1 - c5;
+
+		do i = 1 to 5;
+			if _x(i) = . then
+				_x(i) = 0;
+			_y(i) = put(_x(i),8.);
+		end;
+
+		_cdenom = sum(_crate1,_crate2,_crate3,_crate4,_crate5);
+
+		if _cdenom > 0 then
+			_cp3 = round(_crate5/_cdenom,.01) * 100;
+		else _cp3 = 0;
+		cpercent = catt(_cp3,perc);
+		keep fbfirstrest svcteam c:;
+	run;
+
+	proc sort;
+		by fbfirstrest svcteam;
+	run;
+
+	data rest_all;
+		merge sums1 sums2 sums3;
+		by fbfirstrest svcteam;
+	run;
+
+	proc append base=restfinal data=rest_all;
+	run;
+
+	proc print;
+	run;
+
+%end;
+%mend create_rest;
+
+Sample 6:
+	%macro create_reports_1;
+ods _ALL_ close;
+
+%macro gap;
+	gap = ' ';
+%mend gap;
+
+%let gp1 = Overall Cruise Experience;
+%let gp3 = Crew Members;
+%let gp4 = Stateroom;
+%let gp6 = Food and Beverage Service;
+%let gp7 = Entertainment;
+%let gp8 = Stage Shows;
+%let gp9 = Deck Parties;
+%let gp10 = Youth Activities;
+%let gp11 = Onboard Shopping;
+%let gp12 = Concierge Ratings;
+%let gp13 = Castaway Cay;
+%let prob15 = Castaway Cay;
+%let prob16 = Food and Beverage;
+%let prob17 = General;
+%let prob18 = Port Adventures;
+%let prob19 = Transportation;
+%let prob20 = Youth Areas;
+options missing=' ';
+
+proc sql noprint;
+	create table x as select distinct detailtabsection, 
+		detailtabreportorder from ex2 order by detailtabreportorder;
+quit;
+
+data _null_;
+	set x end=last;
+
+	if last then
+		call symputx('x',_n_);
+run;
+
+proc sql;
+	select detailtabreportorder into :nums separated by ',' from x;
+quit;
+
+%do n = 1 %to &x;
+	%let varnum = %scan(%superq(nums),&n,%str(,));
+
+	data final&varnum;
+		set ex2;
+
+		if detailtabreportorder = &varnum;
+	run;
+
+%end;
+
+proc sql noprint;
+	create table y as select distinct detailtabsection, 
+		detailtabreportorder from rpt15 order by detailtabreportorder;
+quit;
+
+data _null_;
+	set y end=last;
+
+	if last then
+		call symputx('y',_n_);
+run;
+
+proc sql;
+	select detailtabreportorder into :nums separated by ',' from y;
+quit;
+
+%do n = 1 %to &y;
+	%let varnum = %scan(%superq(nums),&n,%str(,));
+
+	data probs&varnum;
+		set rpt15;
+
+		if detailtabreportorder = &varnum;
+	run;
+
+%end; 
+**********************************************************************************************;
+* Separate Proc Reports into 10 Different Categories for Illustrative Purposes ;
+**********************************************************************************************;
+ 
+ proc template;
+	define style styles.new1;
+		parent=styles.htmlblue;
+		class body / background=transparent backgroundcolor=white;
+		replace fonts /
+			'TitleFont' = ("Helvetica",16pt,Bold Italic) 
+			'TitleFont2' = ("Helvetica",11pt,Bold Italic)
+			'StrongFont' = ("Helvetica",10pt,Bold)
+			'EmphasisFont' = ("Helvetica",10pt,Italic)
+			'headingEmphasisFont' = ("Helvetica",9pt,Bold Italic)
+			'headingFont' = ("Helvetica",9pt,Bold) 
+			'docFont' = ("Helvetica",10pt) 
+			'footFont' = ("Helvetica",13pt)
+			'FixedEmphasisFont' = ("Helvetica",9pt,Italic)
+			'FixedStrongFont' = ("Helvetica",9pt,Bold)
+			'FixedHeadingFont' = ("Helvetica",9pt,Bold)
+			'BatchFixedFont' = ("Helvetica",6.7pt)
+			'FixedFont' = ("Helvetica",9pt);
+	end;
+run;
+
+ods excel file = "&odsout" style=styles.new1 
+	options(sheet_name='Detail Report' embedded_titles="yes" 
+	start_at='2,2' sheet_interval="none" 
+	absolute_column_width="10,70,12,12,15,12,12,12,12,12,12,12,12,12,12,12
+	"
+	row_heights='38,17');
+
+proc odstext;
+	P " ";
+	%put &sysvlong;
+	%put &sysscpl;
+
+%macro rptnum(rnum);
+
+	proc report data=final&rnum split='*' style(header)= 
+		[font_weight=bold background= CX3498DB color=white just=center 
+		bordercolor=CX1D6DA3]
+		style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+		%if &rnum = 1 %then
+			%do;
+				title1 "Disney Magic Shipboard GSM: Detailed Report" bold 
+					h=16pt color=CX3498DB;
+				title2 "Sail Date: 4/24/2019" bold h=11pt color=black;
+			%end;
+		%else
+			%do;
+				title1;
+				title2;
+			%end;
+
+		compute label;
+			count+1;
+
+			if mod(count,2) then
+				do;
+					call define(_row_,"style","style=[background = white 
+						bordercolor = white]");
+				end;
+			else
+				do;
+					call define(_row_,"style","style=[background = 
+						CXC7E2F5 bordercolor = CXC7E2F5]");
+				end;
+		endcomp;
+
+		column label tc p5_t benchmark excellent p5f_t p5nf_t p5c_t 
+			p5nc_t p4_t p3_t p2_t p1_t avg_t highestavg;
+		define label / display left "&&gp&rnum"
+			style(column)={tagattr='wraptext:no' width=100%} 
+			style(header)={background=CX3498DB bordertopcolor=CX3498DB 
+			borderbottomcolor=CX3498DB borderleftcolor=CX3498DB 
+			fontsize=12pt vjust=c};
+		define tc / display center "Total" 
+			style(header)={background=CX1D6DA3 borderrightcolor=black 
+			borderrightwidth=.1pt} 
+			style(column)={borderrightcolor=black 
+			borderrightwidth=.1pt};
+		define p5_t / display center "Excellent" 
+			style(header)={background=CX1D6DA3 
+			borderrightcolor=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define benchmark / display center format=percent7. 
+			"Bahamas*Benchmark" 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define excellent / display center format=percent7. 
+			"Highest*%" 
+			style(header)={background=CX1D6DA3 borderrightcolor=black 
+			borderrightwidth=.1pt} 
+			style(column)={borderrightcolor=black 
+			borderrightwidth=.1pt};
+		define p5f_t / display center "Excellent*Families" 
+			style(header)={background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define p5nf_t / display center "Excellent*Non-Families" 
+			style(header)={background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define p5c_t / display center "Excellent*Cruisers" 
+			style(header)={background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define p5nc_t / display center "Excellent*Non-Cruisers" 
+			style(header)={background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define p4_t / display center "Very Good" 
+			style(header)={background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define p3_t / display center "Good" 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define p2_t / display center "Just O.K." 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define p1_t / display center "Poor" 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define avg_t / display center "Average" 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define highestavg / display center "Highest Avg." 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	run;
+ %mend rptnum;
+
+	title1;
+ 	title2;
+ %macro rptoth(rnum);
+
+	proc report data=final&rnum split='*' style(header)= 
+		[font_weight=bold background= CX3498DB color=white just=center 
+		bordercolor=CX1D6DA3]
+		style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+		compute label;
+			count+1;
+
+			if mod(count,2) then
+				do;
+					call define(_row_,"style","style=[background = white 
+						bordercolor = white]");
+				end;
+			else
+				do;
+					call define(_row_,"style","style=[background = 
+						CXC7E2F5 bordercolor = CXC7E2F5]");
+				end;
+		endcomp;
+
+		column label tc p5_t benchmark excellent p5f_t p5nf_t p5c_t 
+			p5nc_t p4_t p3_t p2_t p1_t avg_t highestavg;
+		define label / display left "&&gp&rnum" 
+			style(column)={tagattr='wraptext:no' width=100%} 
+			style(header)=header{background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3 
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+			fontsize=12pt vjust=c};
+		define tc / display ' ' center 
+			style(column)=[borderrightcolor=black 
+			borderrightwidth=.1pt]
+			style(header)=header{background=white 
+			bordertopcolor=white};
+		define p5_t / display ' ' center 
+			style(header)=header{background=white bordertopcolor=white};
+		define benchmark / display ' ' center format=percent7. 
+			style(header)=header{background=white bordertopcolor=white};
+		define excellent / display ' ' center format=percent7. 
+			style(header)=header{background=white bordertopcolor=white} 
+			style(column)=[borderrightcolor=black 
+			borderrightwidth=.1pt];
+		define p5f_t / display ' ' center 
+			style(header)=header{background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define p5nf_t / display ' ' center 
+			style(header)=header{background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define p5c_t / display ' ' center 
+			style(header)=header{background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define p5nc_t / display ' ' center 
+			style(header)=header{background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define p4_t / display ' ' center 
+			style(header)=header{background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define p3_t / display ' ' center 
+			style(header)=header{background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define p2_t / display ' ' center 
+			style(header)=header{background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define p1_t / display ' ' center 
+			style(header)=header{background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define avg_t / display ' ' center 
+			style(header)=header{background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define highestavg / display ' ' center 
+			style(header)=header{background=white bordertopcolor=white 
+			borderbottomcolor=white};
+	run;
+
+%mend rptoth;
+
+%macro rptprob(rnum);
+
+	proc report data=probs&rnum split='*' style(header)= 
+		[font_weight=bold background= CX3498DB color=white just=center 
+		bordercolor=CX1D6DA3]
+		style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+		compute label;
+			count+1;
+
+			if mod(count,2) then
+				do;
+					call define(_row_,"style","style=[background = white 
+						bordercolor = white]");
+				end;
+			else
+				do;
+					call define(_row_,"style","style=[background = 
+						CXC7E2F5 bordercolor = CXC7E2F5]");
+				end;
+		endcomp;
+
+		column label tc benchmark ptotal_t p5_t p4_t p3_t p2_t pnr_t 
+			po5_t po2_t;
+		define label / display left "&&prob&rnum" 
+			style(column)={tagattr='wraptext:no' width=100%} 
+			style(header)=header{background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3 
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+			fontsize=12pt vjust=c};
+		define tc / display ' ' center 
+			style(header)={background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define benchmark / display ' ' center format=percent7. 
+			style(header)={background=white bordertopcolor=white};
+		define ptotal_t / display ' ' center 
+			style(header)={background=white bordertopcolor=white} 
+			style(column)=[borderrightcolor=black 
+			borderrightwidth=.1pt];
+		define p5_t / display ' ' center 
+			style(header)={background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define p4_t / display ' ' center 
+			style(header)={background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define p3_t / display ' ' center 
+			style(header)={background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define p2_t / display ' ' center 
+			style(header)={background=white bordertopcolor=white} 
+			style(column)=[borderrightcolor=black 
+			borderrightwidth=.1pt];
+		define pnr_t / display ' ' center 
+			style(header)={background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define po5_t / display ' ' center 
+			style(header)={background=white bordertopcolor=white 
+			borderbottomcolor=white};
+		define po2_t / display ' ' center 
+			style(header)={background=white bordertopcolor=white 
+			borderbottomcolor=white};
+	run;
+
+%mend rptprob;
+
+%rptnum(1);
+title1;
+title2;
+title3;
+
+proc report data=motion nowd style(header)= [font_weight=bold 
+	background= CX3498DB color=white just=center bordercolor=CX1D6DA3]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	column label cnt _p1 _p2;
+	define label / display "Ship Motion Negative Impact" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX3498DB bordertopcolor=CX3498DB 
+		borderbottomcolor=CX3498DB borderleftcolor=CX3498DB 
+		fontsize=12pt vjust=c};
+	define cnt / display "Total" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p1 / display center "Yes" 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p2 / display center "No " 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run;
+
+%rptnum(3)
+%rptnum(4)
+
+proc report data=report6 split='*' style(header)= [font_weight=bold 
+color=white just=center]
+style(column)=[vjust=c];
+
+compute label;
+	count+1;
+
+	if mod(count,2) then
+		do;
+			call define(_row_,"style","style=[background = white 
+				bordercolor = white]");
+		end;
+	else
+		do;
+			call define(_row_,"style","style=[background = 
+				CXC7E2F5 bordercolor = CXC7E2F5]");
+		end;
+endcomp;
+
+column label n1 mins p1;
+define label / display center "Stateroom Issues" 
+	style(column)={tagattr='wraptext:no' width=100%} 
+	style(header)={background=CX3498DB fontsize=12pt vjust=c};
+define n1 / display center "Number" 
+	style(header)=header{background=CX1D6DA3};
+define mins / display center "Bahamas*Benchmark" 
+	style(header)=header{background=CX1D6DA3};
+define p1 / display center format=percent7. "% of Total" 
+	style(header)=header{background=CX1D6DA3};
+run;
+
+%rptnum(6)
+%rptnum(7)
+%rptoth(8)
+%rptoth(9)
+%rptoth(10)
+%rptnum(11)
+%rptnum(12)
+%rptnum(13)
+
+proc report data=prprob split='*' style(header)= [font_weight=bold 
+background= CX3498DB color=white just=center bordercolor=CX1D6DA3]
+style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+column label cnt perc2 stat2_;
+
+compute label;
+	count+1;
+
+	if mod(count,2) then
+		do;
+			call define(_row_,"style","style=[background = white 
+				bordercolor = white]");
+		end;
+	else
+		do;
+			call define(_row_,"style","style=[background = 
+				CXC7E2F5 bordercolor = CXC7E2F5]");
+		end;
+endcomp;
+
+define label/ display "Problem Resolution" left 
+	style(column)={tagattr='wraptext:no' width=100% borderwidth=0 vjust=c} 
+	style(header)={background=CX3498DB bordertopcolor=CX3498DB 
+	borderbottomcolor=CX3498DB borderleftcolor=CX3498DB 
+	fontsize=12pt vjust=c};
+define cnt / display "Total" center 
+	style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+	borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+define perc2 / display center "Yes" 
+	style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+	borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+define stat2_/ display center "Bahamas*Benchmark " 
+	style(header)={background=CX1D6DA3 
+	bordertopcolor=CX1D6DA3
+	borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run;
+
+data filler;
+	%do r = 1 %to 11;
+		var&r = ' ';
+	%end;
+run;
+
+proc report data=filler split='*' style(header)= 
+	[font_weight=bold background= CX3498DB color=white just=center 
+	bordercolor=CX1D6DA3]
+	style(column)=[borderwidth=0pt bordercolor=white];
+	column %do j=1 %to 11;
+	var&j
+	%end;;
+
+	define var1 / display 'Problem Area ' 
+		style(header)=header{background=CX3498DB 
+		bordertopcolor=CX3498DB borderbottomcolor=CX3498DB 
+		borderleftcolor=CX3498DB fontsize=12pt vjust=c};
+	define var2 / display 'Number' 
+		style(header)=header{background=CX1D6DA3};
+	define var3 / display 'Bahamas*Benchmark' 
+		style(header)=header{background=CX1D6DA3};
+	define var4 / display '% of Total' 
+		style(header)=header{background=CX1D6DA3 borderrightcolor=black 
+		borderrightwidth=.1pt};
+	define var5 / display '% Handled*Excellent' 
+		style(header)=header{background=CX1D6DA3};
+	define var6 / display '% Handled*Very Good' 
+		style(header)=header{background=CX1D6DA3};
+	define var7 / display '% Handled*Good' 
+		style(header)=header{background=CX1D6DA3};
+	define var8 / display '% Handled*Okay/Poor' 
+		style(header)=header{background=CX1D6DA3 borderrightcolor=black 
+		borderrightwidth=.1pt};
+	define var9 / display '% Not*Reported' 
+		style(header)=header{background=CX1D6DA3};
+	define var10 / display 'Overall*Cruise %*Excellent' 
+		style(header)=header{background=CX1D6DA3};
+	define var11 / display 'Overall*Cruise %*Okay/Poor' 
+		style(header)=header{background=CX1D6DA3};
+run;
+
+%rptprob(15)
+%rptprob(16)
+%rptprob(17)
+%rptprob(18)
+%rptprob(19)
+%rptprob(20)
+
+data filler;
+	var1 = ' ';
+run;
+
+proc report data=filler split='*' style(header)= 
+	[font_weight=bold background= CX3498DB color=white just=center 
+	bordercolor=CX1D6DA3]
+	style(column)=[borderwidth=0pt bordercolor=white];
+	column var1;
+	define var1 / display 'Guest Information' 
+		style(header)=header{background=CX3498DB 
+		bordertopcolor=CX3498DB borderbottomcolor=CX3498DB 
+		borderleftcolor=CX3498DB fontsize=12pt vjust=c};
+run;
+
+proc report data=guestinfo split='*' style(header)= 
+	[font_weight=bold background= CX1D6DA3 color=white just=center 
+	bordercolor=CX1D6DA3]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	column label cnt _p1 _p2;
+	define label / display "Multi-Day Cruiser" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define cnt / display "Total" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p1 / display "Yes" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p2 / display "No" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run;
+
+proc report data=numcr split='*' style(header)= [font_weight=bold 
+	background= CX1D6DA3 color=white just=center bordercolor=CX1D6DA3]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	column label cnt _p1 _p2 _p3 _p4 _p5;
+	define label / display "Previous DCL Cruises Taken" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define cnt / display "Total" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p1 / display "First One" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p2 / display "2" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p3 / display "3" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p4 / display "4" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p5 / display "5+" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run;
+
+proc report data=grouptype style(header)= [font_weight=bold 
+	background= CX1D6DA3 color=white just=center bordercolor=CX1D6DA3]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	column label _p1 _p2;
+	define label / display "Group Type" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define _p1 / display "Family" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p2 / display "Non " center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run;
+
+proc report data=reccr style(header)= [font_weight=bold background= 
+	CX1D6DA3 color=white just=center bordercolor=CX1D6DA3]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	compute label;
+		count+1;
+
+		if mod(count,2) then
+			do;
+				call define(_row_,"style","style=[background = white 
+					bordercolor = white]");
+			end;
+		else
+			do;
+				call define(_row_,"style","style=[background = 
+					CXC7E2F5 bordercolor = CXC7E2F5]");
+			end;
+	endcomp;
+
+	column label cnt _p1 _p2 _p3 _p4 _p5;
+	define label / display "Intent to Recommend and Return" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define cnt / display " Total" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p1 / display "Definitely*Will" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p2 / display "Probably Will " center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p3 / display "Undecided" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p4 / display "Proably*WIll Not" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p5 / display "Definitely*Will Not" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run;
+
+proc report data=pressure split='*' style(header)= [font_weight=bold 
+	background= CX1D6DA3 color=white just=center bordercolor=CX1D6DA3]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	column label _c1 _p1 _p2 _p3;
+	define label / display "Pressure to Answer 'Excellent'" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define _c1 / display " Total" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p1 / display "Yes" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p2 / display "No" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _p3 / display "Did Not*Answer" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run;
+
+proc report data=countryreport split='*' style(header)= 
+	[font_weight=bold background= CX3498DB color=white just=center 
+	bordercolor=CX3498DB]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	compute label;
+		count+1;
+
+		if mod(count,2) then
+			do;
+				call define(_row_,"style","style=[background = white 
+					bordercolor = white]");
+			end;
+		else
+			do;
+				call define(_row_,"style","style=[background = 
+					CXC7E2F5 bordercolor = CXC7E2F5]");
+			end;
+	endcomp;
+
+	column label p1 p2 - p4 p5 p6;
+	define label / left width=60 "Overall Cruise Experience by 
+		Guest Origin Country" left style(column)={tagattr='wraptext:no' 
+		width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define p1 / display "ALL" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define p2 / display "USA" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define p3 / display "BRAZIL" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define p4 / display "CANADA" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define p5 / display "SPAIN" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define p6 / display "UK" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run;
+ %let cdate = 04/24/19;
+%let pdate = 04/10/19;
+
+/* Add dummy table */
+ods excel options(sheet_interval="table");
+ods exclude all;
+
+data _null_;
+	file print;
+	put _all_;
+run;
+
+proc sort data=report5a nodupkey out=sumx 
+	(keep=summarytabreportorder);
+	by summarytabreportorder;
+run;
+
+data _null_;
+	set report5a end=last;
+
+	if last then
+		call symputx('u',_n_);
+run;
+
+data %do x=1 %to &u;
+	sum&x
+	%end;;
+
+	set report5a;
+
+	%do v = 1 %to &u;
+		if summarytabreportorder = &v then
+			output sum&v;
+	%end;
+run;
+
+data sum1;
+	set sum1;
+	r = ' ';
+run;
+
+proc sql noprint;
+	select left(trim(summarytabsection)) into :sumsect1 -
+		:sumsect&u from t;
+quit;
+
+ods select all;
+ods excel options(sheet_interval="none" sheet_name='Summary 
+	Report');
+
+%do num = 1 %to 10;
+	title1;
+	title2;
+
+	proc report data=sum&num split='*' style(header)= 
+		[font_weight=bold background= CX3498DB color=white just=center 
+		bordercolor=CX1D6DA3]
+		style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+		%if &num = 1 %then
+			%do;
+				title1 "Disney Magic Shipboard GSM: Summary Report" bold 
+					h=16pt color=CX3498DB;
+				title2 "Sail Date: 4/24/2019 Route: Bahamas" bold 
+					h=11pt color=grey;
+			%end;
+		%else
+			%do;
+				title1;
+				title2;
+			%end;
+
+		compute label;
+			count+1;
+
+			if mod(count,2) then
+				do;
+					call define(_row_,"style","style=[background = white 
+						bordercolor = white]");
+				end;
+			else
+				do;
+					call define(_row_,"style","style=[background = 
+						CXC7E2F5 bordercolor = CXC7E2F5]");
+				end;
+		endcomp;
+
+		column label r p2rr p1rr sigsign sigvoy arr brr crr drr;
+		define label / display left "&&sumsect&num"
+			style(column)={tagattr='wraptext:no' width=100%} 
+			style(header)={background=CX3498DB bordertopcolor=CX3498DB 
+			borderbottomcolor=CX3498DB borderleftcolor=CX3498DB 
+			fontsize=12pt vjust=c};
+
+		%if &num = 1 %then
+			%do;
+				define r / display center "" 
+					style(header)={background=CX1D6DA3 
+					borderrightcolor=CX1D6DA3 bordertopcolor=CX1D6DA3
+					borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+			%end;
+		%else
+			%do;
+				define r / display center "Response*Rate" 
+					style(header)={background=CX1D6DA3 
+					borderrightcolor=CX1D6DA3 bordertopcolor=CX1D6DA3
+					borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+			%end;
+
+		define p2rr / display center "Current*&cdate" 
+			style(header)={background=CX1D6DA3 
+			borderrightcolor=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define p1rr / display center "Previous*&pdate" 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define sigsign / display center "Sig Voy to LIke*Voy Diffs" 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define sigvoy / display center "Like Voy Trend*Indicator" 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define arr / display center "FY19 Like*Benchmark" 
+			style(header)={background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define brr / display center "All-time Ship*High" 
+			style(header)={background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define crr / display center "FY19 Ship YTD" 
+			style(header)={background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define drr / display center "FY19 Ship*Adjusted YTD" 
+			style(header)={background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	run;
+
+%end;
+/* Add dummy table */
+
+ods excel options(sheet_interval="table");
+ods exclude all;
+
+data _null_;
+	file print;
+	put _all_;
+run;
+
+ods select all;
+ods excel options(sheet_interval="none" sheet_name='QTR GOAL 
+	Report' 
+	absolute_column_width="20,65,1,1,20,15,15,15,1,20,15,15,15,1,20,15,15,
+	15,1,20,15,15,15"
+	row_heights='38,17');
+
+data qtrgoal;
+	set qtrgoal;
+
+	%gap
+	run;
+
+proc report data=qtrgoal split='*' style(header)= 
+		[font_weight=bold background= CX3498DB color=white just=center 
+		bordercolor=CX1D6DA3]
+		style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	title1 "Disney Magic Quarterly Goals" bold h=16pt 
+		color=CX3498DB;
+	title2 "Sail Date: 4/24/2019 Route: Bahamas" bold 
+		h=11pt color=grey;
+
+	compute label;
+		count+1;
+
+		if mod(count,2) then
+			do;
+				call define(_row_,"style","style=[background = white 
+					bordercolor = white]");
+			end;
+		else
+			do;
+				call define(_row_,"style","style=[background = 
+					CXC7E2F5 bordercolor = CXC7E2F5]");
+			end;
+	endcomp;
+
+	compute gap;
+		call define(_col_,"style","style=[background=white 
+			borderwidth=0]");
+	endcomp;
+
+	column label gap gap %do y=1 %to &fq;
+		range&y within&y 
+		above&y below&y gap
+	%end;;
+
+	define label / display left ""
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX3498DB bordertopcolor=CX3498DB 
+		borderbottomcolor=CX3498DB borderleftcolor=CX3498DB 
+		fontsize=12pt vjust=c};
+
+	%do d=1 %to &fq;
+		define range&d / display center "Goal Range" 
+			style(column)={tagattr='wraptext:no' width=100%} 
+			style(header)={background=CX1D6DA3 
+			borderrightcolor=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define within&d / display center "% Within" 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define above&d / display center "% Above" 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define below&d / display center "% Below" 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define gap / ' ' style={cellwidth=.25in} 
+			style(column)={backgroundcolor=white borderwidth = 0};
+	%end;
+
+run;
+
+ods excel options(sheet_interval="table");
+ods exclude all;
+
+data _null_;
+	file print;
+	put _all_;
+run;
+
+proc sql noprint;
+	select strip(put(max(ytdtabreportorder),8.)) into :ytdmax 
+		from ytdallrows;
+	select distinct quote(ytdtabsection) into :ytdsec1 -
+		:ytdsec&ytdmax from ytdallrows;
+quit;
+
+data %do b=1 %to &ytdmax;
+	ytd&b
+	%end;;
+
+	set ytdallrows;
+
+	%do c=1 %to &ytdmax;
+		if ytdtabreportorder = &c then
+			output ytd&c;
+	%end;
+run;
+
+data _null_;
+	x = "20,75,10,10,"||repeat('10,',%eval(&ndates-2))||"10";
+	call symput('xdates',x);
+run;
+
+ods select all;
+ods excel options(sheet_interval="none" sheet_name='YTD Report' 
+	absolute_column_width="&xdates" row_heights='38,17');
+
+proc report data=transdts split='*' style(header)= 
+	[font_weight=bold background= CX3498DB color=white just=center 
+	bordercolor=CX1D6DA3]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	title1 "Disney Magic Quarterly Goals" bold h=16pt 
+		color=CX3498DB;
+	title2 "Sail Date: 4/24/2019 Route: Bahamas" bold 
+		h=11pt color=grey;
+	column label var1 var2 %do r = 1 %to &ndates;
+	col&r
+	%end;;
+
+	define label / display left ""
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX3498DB bordertopcolor=CX3498DB 
+		borderbottomcolor=CX3498DB borderleftcolor=CX3498DB 
+		fontsize=12pt vjust=c};
+	define var1 / display ' ' center;
+	define var2 / display ' ' center;
+
+	%do x=1 %to &ndates;
+		define col&x / display ' ' center;
+	%end;
+run;
+
+title1;
+title2;
+
+%do g=1 %to &ytdmax;
+
+	proc report data=ytd&g split='*' style(header)= 
+		[font_weight=bold background= CX3498DB color=white just=center 
+		bordercolor=CX1D6DA3]
+		style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+		compute label;
+			count+1;
+
+			if mod(count,2) then
+				do;
+					call define(_row_,"style","style=[background = white 
+						bordercolor = white]");
+				end;
+			else
+				do;
+					call define(_row_,"style","style=[background = 
+						CXC7E2F5 bordercolor = CXC7E2F5]");
+				end;
+
+			if label in (&headers) then
+				do;
+					call define(_row_,"style","style=[font_weight=bold 
+						background=navy color=white borderrightcolor=navy bordertopcolor=navy
+
+						borderbottomcolor=navy borderleftcolor=navy just=left font=(Helvetica, 
+						12pt)]");
+				end;
+		endcomp;
+
+		column label avg1 avg2 %do y=1 %to &ndates;
+		var&y
+%end;;
+
+define label / display left &&ytdsec&g
+	style(column)={tagattr='wraptext:no' width=100%} 
+	style(header)={background=CX3498DB bordertopcolor=CX3498DB 
+	borderbottomcolor=CX3498DB borderleftcolor=CX3498DB 
+	fontsize=12pt vjust=c};
+define avg1 / display center " " 
+	style(header)={background=CX1D6DA3 
+	borderrightcolor=CX1D6DA3 bordertopcolor=CX1D6DA3
+	borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+define avg2 / display center " " 
+	style(header)={background=CX1D6DA3 
+	borderrightcolor=CX1D6DA3 bordertopcolor=CX1D6DA3
+	borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+
+%do d=1 %to &ndates;
+	define var&d / display center " " 
+		style(header)={background=CX1D6DA3 
+		borderrightcolor=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define _name_ / noprint;
+%end;
+	run;
+ 
+ %end;
+ ods excel options(sheet_interval="table");
+ ods exclude all;
+
+data _null_;
+	file print;
+	put _all_;
+run;
+
+ods select all;
+ods excel options(sheet_interval="none" sheet_name='SEC CLEAN 
+	Report' absolute_column_width="20,12,8,8,8,8,8,8,8,8,8,8" 
+	row_heights='38,17');
+
+proc report data=secclean split='*' style(header)= 
+	[font_weight=bold background= CX3498DB color=white just=center 
+	bordercolor=CX3498DB]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	compute section;
+		count+1;
+
+		if mod(count,2) then
+			do;
+				call define(_row_,"style","style=[background = white 
+					bordercolor = white]");
+			end;
+		else
+			do;
+				call define(_row_,"style","style=[background = 
+					CXC7E2F5 bordercolor = CXC7E2F5]");
+			end;
+	endcomp;
+
+	column section ("Cleanliness of Stateroom During Stay" ("Poor" 
+		poor poor_percent) ("Just OK" justok justok_percent) ("Good" good 
+		good_percent) ("Very Good" vg vg_percent) ("Excellent" ex 
+		ex_percent));
+	define section / center width=20 "Section" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define poor / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define poor_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define justok / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define justok_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define good / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define good_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define vg / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define vg_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define ex / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define ex_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run; ods excel options(sheet_interval="table");
+
+ods exclude all;
+
+data _null_;
+	file print;
+	put _all_;
+run;
+
+ods select all;
+ods excel options(sheet_interval="none" sheet_name='SEC FRIEND 
+	Report' absolute_column_width="20,12,8,8,8,8,8,8,8,8,8,8" 
+	row_heights='38,17');
+
+proc report data=sechost split='*' style(header)= 
+	[font_weight=bold background= CX3498DB color=white just=center 
+	bordercolor=CX3498DB]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	compute section;
+		count+1;
+
+		if mod(count,2) then
+			do;
+				call define(_row_,"style","style=[background = white 
+					bordercolor = white]");
+			end;
+		else
+			do;
+				call define(_row_,"style","style=[background = 
+					CXC7E2F5 bordercolor = CXC7E2F5]");
+			end;
+	endcomp;
+
+	column section ("Friendliness / Courtesy of Stateroom Host/ess"
+		("Poor" poor poor_percent) ("Just OK" justok justok_percent) ("Good" 
+		good good_percent) ("Very Good" vg vg_percent) ("Excellent" ex 
+		ex_percent));
+	define section / center width=20 "Section" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define poor / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define poor_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define justok / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define justok_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define good / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define good_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define vg / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define vg_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define ex / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define ex_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run; ods excel options(sheet_interval="table");
+
+ods exclude all;
+
+data _null_;
+	file print;
+	put _all_;
+run;
+
+ods select all;
+ods excel options(sheet_interval="none" sheet_name='SEC WORKING 
+	Report' absolute_column_width="20,12,8,8,8,8,8,8,8,8,8,8" 
+	row_heights='38,17');
+
+proc report data=secwork split='*' style(header)= 
+	[font_weight=bold background= CX3498DB color=white just=center 
+	bordercolor=CX3498DB]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	compute section;
+		count+1;
+
+		if mod(count,2) then
+			do;
+				call define(_row_,"style","style=[background = white 
+					bordercolor = white]");
+			end;
+		else
+			do;
+				call define(_row_,"style","style=[background = 
+					CXC7E2F5 bordercolor = CXC7E2F5]");
+			end;
+	endcomp;
+
+	column section ("Everything in Working Order" ("Poor" poor 
+		poor_percent) ("Just OK" justok justok_percent) ("Good" good 
+		good_percent) ("Very Good" vg vg_percent) ("Excellent" ex 
+		ex_percent));
+	define section / center width=20 "Section" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define poor / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define poor_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define justok / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define justok_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define good / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define good_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define vg / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define vg_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define ex / display "Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define ex_percent / display "%" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run; ods excel options(sheet_interval="table");
+
+ods exclude all;
+
+data _null_;
+	file print;
+	put _all_;
+run;
+
+data finalfb;
+	set finalfb;
+
+	%gap
+	run;
+	ods select all;
+	ods excel options(sheet_interval="none" sheet_name='FB Report' 
+		absolute_column_width="20,25,8,8,8,8,8,1,8,8,8,8,8,1,8,8,8,8,8" 
+		row_heights='38,17');
+
+proc report data=finalfb split='*' style(header)= 
+		[font_weight=bold background= CX3498DB color=white just=center 
+		bordercolor=CX3498DB]
+		style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	compute label;
+		count+1;
+
+		if mod(count,2) then
+			do;
+				call define(_row_,"style","style=[background = white 
+					bordercolor = white]");
+			end;
+		else
+			do;
+				call define(_row_,"style","style=[background = 
+					CXC7E2F5 bordercolor = CXC7E2F5]");
+			end;
+	endcomp;
+
+	compute gap;
+		call define(_col_,"style","style=[background=white 
+			borderwidth=0]");
+	endcomp;
+
+	column label ("Friendliness and courtesy of server team" 
+		percent1 percent2 percent3 percent4 percent5) gap
+		("Overall dining experience" percent6 
+		percent7 percent8 percent9 percent10) gap
+		("Overall food quality" percent11 
+		percent12 percent13 percent14 percent15);
+	define label / center width=20 "" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define percent1 / display "Poor" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent2 / display "Just Okay" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent3 / display "Good" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent4 / display "Very Good" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent5 / display "Excellent" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent6 / display "Poor" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent7 / display "Just Okay" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent8 / display "Good" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent9 / display "Very Good" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent10 / display "Excellent" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent11 / display "Poor" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent12 / display "Just Okay" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent13 / display "Good" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent14 / display "Very Good" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent15 / display "Excellent" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define gap / ' ' style={cellwidth=.25in} 
+		style(column)={backgroundcolor=white bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		borderwidth = 0};
+run; 
+
+proc report data=fboverall split='*' style(header)= 
+	[font_weight=bold background= CX3498DB color=white just=center 
+	bordercolor=CX3498DB]
+	style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	compute label;
+		count+1;
+
+		if mod(count,2) then
+			do;
+				call define(_row_,"style","style=[background = white 
+					bordercolor = white]");
+			end;
+		else
+			do;
+				call define(_row_,"style","style=[background = 
+					CXC7E2F5 bordercolor = CXC7E2F5]");
+			end;
+	endcomp;
+
+	column label percent1 percent2 percent3 percent4 percent5;
+	define label / center width=20 "" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define percent5 / display "Excellent" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent4 / display "Very Good" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent3 / display "Good" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent2 / display "Just OK" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define percent1 / display "Poor" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+run;
+
+data r1 r2 r3;
+	set restfinal;
+
+	if fbfirstrest = 1 then
+		output r1;
+
+	if fbfirstrest = 2 then
+		output r2;
+
+	if fbfirstrest = 3 then
+		output r3;
+run;
+
+%let lab1 = "Animator's Palate";
+%let lab2 = "Lumiere's";
+%let lab3 = "Rapunzel's Royal Table";
+%let tab1 = AP_REPORT;
+%let tab2 = TL_REPORT;
+%let tab3 = RRT_REPORT;
+
+%do t = 1 %to 3;
+	ods excel options(sheet_interval="table");
+	ods exclude all;
+
+	data _null_;
+		file print;
+		put _all_;
+	run;
+
+	data r&t;
+		set r&t;
+
+		%gap
+		run;
+		ods select all;
+		ods excel options(sheet_interval="none" sheet_name="&&tab&t" 
+			absolute_column_width="20,10,8,8,8,8,8,8,1,8,8,8,8,8,8,1,8,8,8,8,8,8" 
+			row_heights='38,17');
+
+	proc report data=r&t split='*' style(header)= [font_weight=bold 
+			background= CX3498DB color=white just=center bordercolor=CX3498DB]
+			style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+		compute svcteam;
+			count+1;
+
+			if mod(count,2) then
+				do;
+					call define(_row_,"style","style=[background = white 
+						bordercolor = white]");
+				end;
+			else
+				do;
+					call define(_row_,"style","style=[background = 
+						CXC7E2F5 bordercolor = CXC7E2F5]");
+				end;
+		endcomp;
+
+		compute gap;
+			call define(_col_,"style","style=[background=white 
+				borderwidth=0]");
+		endcomp;
+
+		column svcteam ("Friendliness and courtesy of server team" a1 
+			a2 a3 a4 a5 apercent) gap
+			("Overall dining experience" b1 
+			b2 b3 b4 b5 bpercent) gap
+			(&&lab&t c1 c2 c3 c4 c5 
+			cpercent);
+		define svcteam / center width=20 "" left 
+			style(column)={tagattr='wraptext:no' width=100%} 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+			fontsize=12pt vjust=c};
+		define a1 / display "Poor*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define a2 / display "Just Okay*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define a3 / display "Good*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define a4 / display "Very Good*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define a5 / display "Excellent*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define apercent / display "%EXC" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define b1 / display "Poor*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define b2 / display "Just Okay*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define b3 / display "Good*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define b4 / display "Very Good*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define b5 / display "Excellent*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define bpercent / display "%EXC" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define c1 / display "Poor*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define c2 / display "Just Okay*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define c3 / display "Good*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define c4 / display "Very Good*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define c5 / display "Excellent*Count" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define cpercent / display "%EXC" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+		define gap / ' ' style={cellwidth=.25in} 
+			style(column)={backgroundcolor=white bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+			borderwidth = 0};
+	run;
+%end;
+
+ods excel options(sheet_interval="table");
+
+ods exclude all;
+
+data _null_;
+	file print;
+	put _all_;
+run;
+
+ods select all;
+ods excel options(sheet_interval="none" sheet_name="PALOREPORT" 
+	absolute_column_width="20,10,8,8,8,8,8,1,8,8,8,8,8" 
+	row_heights='38,17');
+
+data palo;
+	set palo;
+
+	%gap
+	run;
+
+proc report data=palo split='*' style(header)= 
+		[font_weight=bold background= CX3498DB color=white just=center 
+		bordercolor=CX3498DB]
+		style(column)=[borderwidth=0pt bordercolor=white vjust=c];
+	compute stateroom;
+		count+1;
+
+		if mod(count,2) then
+			do;
+				call define(_row_,"style","style=[background = white 
+					bordercolor = white]");
+			end;
+		else
+			do;
+				call define(_row_,"style","style=[background = 
+					CXC7E2F5 bordercolor = CXC7E2F5]");
+			end;
+	endcomp;
+
+	compute gap;
+		call define(_col_,"style","style=[background=white 
+			borderwidth=0]");
+	endcomp;
+
+	column stateroom ("Friendliness and courtesy of Palo server" a1 
+		a2 a3 a4 a5) gap
+		("Palo Food quality" b1 b2 b3 b4 
+		b5);
+	define stateroom / center width=20 "SR #" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c};
+	define a1 / display "Poor*Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define a2 / display "Just Okay*Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define a3 / display "Good*Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define a4 / display "Very Good*Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define a5 / display "Excellent*Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define b1 / display "Poor*Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define b2 / display "Just Okay*Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define b3 / display "Good*Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define b4 / display "Very Good*Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define b5 / display "Excellent*Count" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	define gap / ' ' style={cellwidth=.25in} 
+		style(column)={backgroundcolor=white bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		borderwidth = 0};
+run;
+
+ods excel options(sheet_interval="table");
+ods exclude all;
+
+data _null_;
+	file print;
+	put _all_;
+run;
+
+data _null_;
+	set srdata end=last;
+	call symput('srvar'||strip(put(varnum,8.)),name);
+	call symput('srlab'||strip(put(varnum,8.)),label);
+
+	if last then
+		call symputx('srcount',_n_);
+run;
+
+ods select all;
+ods excel options(sheet_interval="none" 
+	sheet_name="SRDETAILREPORT" 
+	absolute_column_width="20,10,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5
+	,5,5,5,5,5" row_heights='120,17');
+
+proc report data=sr split='*' style(header)= [font_weight=bold 
+	background= CX3498DB color=white just=center bordercolor=CX3498DB]
+	style(column)=[borderwidth=.5pt bordercolor=black vjust=c 
+	borderbottomstyle = dotted bordertopstyle = dotted borderleftstyle = 
+	dotted borderrightstyle = dotted];
+	compute staterm;
+		count+1;
+
+		if mod(count,2) then
+			do;
+				call define(_row_,"style","style=[background = white 
+					bordercolor = white]");
+			end;
+		else
+			do;
+				call define(_row_,"style","style=[background = 
+					CXC7E2F5 bordercolor = CXC7E2F5]");
+			end;
+	endcomp;
+
+	column ('Stateroom Detail Report for Disney Magic' staterm 
+		overallrating rmworkrating
+
+		%do;
+			j = 1 %to &srcount; &&srvar&j
+		%end;
+	);
+	define staterm / center width=20 "Room #" left 
+		style(column)={tagattr='wraptext:no' width=100%} 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt vjust=c tagattr="rotate:90"};
+	define overallrating / display "Overall Cruise" center 
+		style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		tagattr="rotate:90"};
+	define rmworkrating / display "Everything in*Working Order" 
+		center style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		tagattr="rotate:90"};
+
+	%do b = 1 %to &srcount;
+		define &&srvar&b / display "&&srlab&b" center 
+			style(header)={background=CX1D6DA3 bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+			tagattr="rotate:90"};
+	%end;
+run;
+
+ods excel options(sheet_interval="table");
+ods exclude all;
+
+data _null_;
+	file print;
+	put _all_;
+run;
+
+data _null_;
+	set prdata end=last;
+	call symput('prvar'||strip(put(varnum,8.)),name);
+	call symput('prlab'||strip(put(varnum,8.)),label);
+
+	if last then
+		call symputx('prcount',_n_);
+run;
+
+ods select all;
+ods excel options(sheet_interval="none" 
+	sheet_name="PRDETAILREPORT" 
+	absolute_column_width="20,10,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6
+	,6,6,6,6,6" row_heights='220,17');
+
+proc print data=pr split='*' style(header)= [font_weight=bold 
+	background= CX3498DB color=white just=center bordercolor=CX3498DB 
+	fontsize=9pt]
+	style(column)=[borderwidth=.5pt bordercolor=black vjust=c 
+	borderbottomstyle = dotted bordertopstyle = dotted borderleftstyle = 
+	dotted borderrightstyle = dotted] heading=v;
+	var staterm / style(header)={background=CX1D6DA3 
+		bordertopcolor=CX1D6DA3 
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		fontsize=12pt};
+	var overallrating / style(header)={background=CX1D6DA3 
+		bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	var problem / style(header)={background=CX1D6DA3 
+		bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3 
+		just=center};
+	var tell / style(header)={background=CX1D6DA3 
+		bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	var prhandlerating / style(header)={background=CX1D6DA3 
+		bordertopcolor=CX1D6DA3
+		borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+
+	%do c = 1 %to &prcount;
+		var &&prvar&c / style(header)={background=CX1D6DA3 
+			bordertopcolor=CX1D6DA3
+			borderbottomcolor=CX1D6DA3 borderleftcolor=CX1D6DA3};
+	%end;
+
+	label staterm = 'Room #'
+		overallrating = 'Overall Cruise'
+		problem = 'Did you have a problem'
+		tell = 'Did you tell anyone'
+		prhandlerating = 'How was it handled'
+		_prcce = 'Castaway Cay Excursion' 
+		_prccea = 'Castaway Cay Activities'
+		_prcctran = 'Castaway Cay Transportation'
+		_prch = 'Characters'
+		_prcrew = 'Crew'
+		_prent = 'Entertainment'
+		_prtween = 'Edge'
+		_prteen = 'Vibe'
+		_prfbserv = 'F & B Service'
+		_prfbqual = 'F & B Food Quality'
+		_prfbdntm = 'F & B Dining Time'
+		_prfbtass = 'F & B Table Assignment'
+		_prfbbevs = 'F & B Beverage Service'
+		_prphoto = 'Photography'
+		_prseresp = 'Port Adventure Reservation'
+		_prseexp = 'Port Adenture Experience'
+		_prres = 'Reservations - Stateroom'
+		_prsp = 'Spa'
+		_proa = 'Onboard Account'
+		_prmerch = 'Onboard Merchandise'
+		_prgstsvcdsk = 'Guest Services desk'
+		_prhc = 'Heath Center Medical Care'
+		_prld = 'Laundry'
+		_prlgdam = 'Luggage Damaged'
+		_prarealg = 'Luggage Delivery'
+		_prnursery = "Youth Areas It's a Small World"
+		_procl = 'Youth Areas Oceaneer Club/Lab'
+		_prpool = 'Pool Area'
+		_prsr = 'Stateroom'
+		_prap2wdw = 'Transportation Airport to Hotel'
+		_prres2pc = 'Transportation Hotel to Cruise 
+		Terminal'
+		_prap2pc = 'Transportation Airport to Cruise 
+		Terminal'
+	;
+run;
