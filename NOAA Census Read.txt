@@ -1,0 +1,1069 @@
+
+%macro rdcensus;
+
+
+**************************************************;
+* Datastep below creates a SAS Dataset of MEMNAMES;
+* The MEMNAMES are actually the FILENAMES that are;
+* in the directory specified in the IN_PATH MACRO ;
+* Variable                                        ;
+* So whatever is put in the LOCATION Parameter, in;
+* this case IN_PATH Macro, from the DRIVER FILE,  ;
+* that is where the Datastep will search and      ;
+* load all the filenames into MEMNAME into the    ;
+* Output Dataset FILENAMES                        ;
+* This is what is currently in the MAIN DRIVER:   ;
+* &path.Data_Input\&year.\Demographic_Trends\     ;
+* The files in the Directory look like this:      ;
+* ak000012010.txt, ak000022010.txt, etc.  so the  ;
+* last file for AK is ak000482010.txt, so 48 files;
+* also for each state there is a GEO File - ex.   ;
+* for AK it is akgeo2010.txt, for AL algeo2010.txt;
+* These are the only files we are concerned with  ;
+* in this program                                 ;
+**************************************************;
+
+
+%macro getfilenames (location);
+
+  filename _dir_ "%bquote(&location)";
+
+  data filenames (keep=memname);
+    handle = dopen('_dir_');
+	if handle > 0 then do;
+	  count = dnum(handle);
+	  do i = 1 to count;
+	    memname = dread(handle,i);
+		output filenames;
+      end;
+    end;
+	rc = dclose(handle);
+  run;
+
+%mend getfilenames;
+
+%getfilenames ("&in_path.");
+
+**************************************************;
+* Datastep below creates a SAS Dataset of GEOLAY  ;
+* The Datastep reads a TEXT file that has the name;
+* Start Position and type of variable, CHAR or NUM;
+* and if the variable is NEEDED, with a Y in the  ;
+* Field                                           ;
+**************************************************;
+* DESCRIPTION	STARTPOS	VAR	LENGTH	TYPE	DROP	NEEDED
+* File Identification	1	FILEID	6	CHAR	Y	N
+* State/US-Abbreviation (USPS)	7	STUSAB	2	CHAR	N	Y
+* Summary Level	9	SUMLEV	3	CHAR	Y	Y
+* Geographic Component	12	GEOCOMP	2	CHAR	Y	N
+* Characteristic Iteration	14	CHARITER	3	CHAR	Y	N
+* Characteristic Iteration File Sequence Number	17	CIFSN	2	CHAR	Y	N
+* Logical Record Number	19	LOGRECNO	7	NUM	N	Y
+* Region	26	REGION	1	CHAR	Y	N
+* Division	27	DIVISION	1	CHAR	Y	N
+* State (FIPS)	28	STATE	2	CHAR	N	Y
+* County	30	COUNTY	3	CHAR	N	Y;
+
+data geolay;
+  infile "&lay_path.State PL Geo.txt" dlm='09'x firstobs=2;
+  input description $ startpos var $ length $ type $ drop $ needed $;
+  %if &onlyneed = Y %then %do;
+     if needed = 'Y';
+  %end;
+  %else %do;
+  %end;
+run;
+
+
+**************************************************;
+* Datastep gets total number of observations from ;
+* GEOLAY Dataset                                  ;
+**************************************************;
+
+%macro nobs(ds);
+
+  %let dsid = %sysfunc(open(&ds.,IN));
+  %let nobs = %sysfunc(attrn(&dsid,nobs));
+  %let rc   = %sysfunc(close(&dsid));
+ 
+%mend nobs;
+%nobs(geolay);  
+   		
+**************************************************;
+* SQL below creates Macro Variables NAME1 to NAMEx;
+* where x is the number of rows in GEOLAY         ;
+* So NAME1 will have the first Variable: FILEID   ;
+* since it is in the first row                    ;
+* Start Position and type of variable, CHAR or NUM;
+* and if the variable is NEEDED, with a Y in the  ;
+* Field                                           ;
+**************************************************;
+
+proc sql noprint;
+  select var              into :name1 - :name&nobs from geolay;
+  select startpos         into :spot1 - :spot&nobs from geolay;
+  select case upcase(type)
+           when "NUM"  then compress(length)||'.'
+           when "CHAR" then "$"||compress(length)||'.'
+		   else ' '
+		   end as typevar into :type1 - :type&nobs from geolay;
+  quit;
+run;
+
+**************************************************;
+* GEO Dataset below contains all the filenames    ;
+* that are required for the program               ;
+* Ex. - akgeo2010.txt algeo2010.txt, argeo2010.txt;
+**************************************************;
+
+data geo;
+  set filenames;
+  if substr(memname,3,3)='geo';
+run;
+
+proc sort;
+  by memname;
+run;
+
+**************************************************;
+* This the total count of files in the directory  ;
+* = the value in the macro variable GEOCNT        ;
+**************************************************;
+
+data _null_;
+  if 0 then set geo nobs=n;
+  call symputx('geocnt',n);
+  stop;
+run;
+
+**************************************************;
+* Create a file of GEO data from the FIPS55 File  ;
+* includes 2-byte FIPS and 5-byte FIPS            ;
+**************************************************;
+
+proc sql;
+  create table fips_files as select
+  a.states, a.statefips_a, substr(b.memname,1,2) as state from ref.fips55 a inner join geo b on
+  a.states = upcase(substr(b.memname,1,2))
+  order by a.statefips_a;
+  quit;
+run;
+
+**************************************************;
+* Create Macro variables GEOST1 to GEOSTx where x ;
+* is the total count of files in GEO Dataset above;
+* GEOST1 would be ak, GEOST2 would be al, etc.    ;
+**************************************************;
+
+proc sql noprint;
+  select compress(state) into :geost1 - :geost&geocnt from fips_files;
+  quit;
+run;
+  
+%put &geocnt;
+
+**************************************************;
+* Read in CENSUS LAYOUT Text File                 ;
+* SASNAME is the Variable Name                    ;
+* LABEL is the definition of the SASNAME          ;
+* SEGMENT CELL and NUMCELLS describe the position ;
+* of where the certain field is located in data   ;
+**************************************************;
+* SASNAME	LABEL	SEGMENT	CELL	NUMCELLS
+* P0020002	URBAN POPULATION	2	2	6
+* P0020005	RURUAL POPULATION	2	5	6
+* P0030001	TOTAL POPULATON	3	1	194
+* P0030002	WHITE ALONE	3	2	194
+* P0030003	BLACK OR AFRICAN AMERICAN ALONE	3	3	194
+* P0030004	AMERICAN INDIAN AND ALASKA NATIVE ALONE	3	4	194
+* P0030005	ASIAN ALONE	3	5	194
+* P0030006	NATIVE HAWAIIAN AND OTHER PACIFIC ISLANDER ALONE	3	6	194
+* P0030007	SOME OTHER RACE ALONE	3	7	194
+* P0030008	TWO OR MORE RACES	3	8	194
+* P0050001	TOTAL POPULATON	3	12	194;
+
+data censuslay (rename=(seg=segment));
+     length label $75.;
+     infile "&lay_path.CENSUS LAYOUT.txt" dlm='09'x  firstobs=2;
+     input sasname $ label :$200. segment cell $ numcells;
+	 seg = put(segment,z2.);
+	 drop segment;
+run;
+
+**************************************************;
+* Datastep gets total number of observations from ;
+* CENSUSLAY Dataset                               ;
+**************************************************;
+
+%macro nobs(ds);
+
+  %let dsid    = %sysfunc(open(&ds.,IN));
+  %let p_cnt   = %sysfunc(attrn(&dsid,nobs));
+  %let rc      = %sysfunc(close(&dsid));
+ 
+%mend nobs;
+%nobs(censuslay); 
+
+**************************************************;
+* After determining the number of variables in the;
+* CENSUSLAY dataset define macro variables        ;
+* SASNM1 - SASNMx where x is that count           ;
+* SASNM1 resolves to P0020002                     ;
+* SASNM2 resolves to P0020005, etc.               ;
+**************************************************;
+
+proc sql;
+  select sasname into :sasnm1 - :sasnm&p_cnt from censuslay;
+  quit;
+run;
+ 
+**************************************************;
+* Create SAS Dataset of distinct SEGMENT from the ;
+* above dataset CENSUSLAY                         ;
+* Then in the next step, get total count of those ;
+* SEGMENTs                                        ;
+**************************************************;
+
+proc sql;
+  create table censuslayout as 
+  select distinct segment from censuslay;
+  quit;
+run;
+
+**************************************************;
+* Datastep gets total number of observations from ;
+* CENSUSLAYOUT Dataset                            ;
+**************************************************;
+
+%macro nobs(ds);
+
+  %let dsid    = %sysfunc(open(&ds.,IN));
+  %let segcnt  = %sysfunc(attrn(&dsid,nobs));
+  %let rc      = %sysfunc(close(&dsid));
+ 
+%mend nobs;
+%nobs(censuslayout);  
+
+**************************************************;
+* Create Macro Variables SEG1 to SEGx where x is  ;
+* the total number of Unique SEGMENTS in CENSUSLAY;
+* SEG1 would be 2, SEG2 would be 2, SEG3 3        ;
+**************************************************;
+
+proc sql;
+  select distinct segment into :seg1 - :seg&segcnt from censuslayout;
+  quit;
+run;
+
+**************************************************;
+* This is what a portion of the file below looks  ;
+* like                                            ;
+**************************************************;
+***********************************************************;
+* SASVAR	VARS	LABEL                                  ;
+* POP1	P0030001	TOTAL POPULATON                        ;
+* POP2	P0020002	TOTAL URBAN POPULATION                 ;
+* POP3	P0020005	TOTAL RURAL POPULATION                 ;
+* POP4	P0030001	TOTAL URBAN AND RURAL POPULATION       ;
+***********************************************************;
+
+data geolay;
+     length label $95.;
+     infile "&lay_path.GEO FINAL LAYOUTS.txt" dlm='09'x  firstobs=2;
+     input sasname $ mod :$200. label :$200.;
+run;
+
+**************************************************;
+* Datastep gets total number of observations from ;
+* GEOLAY Dataset                                  ;
+**************************************************;
+
+%macro nobs(ds);
+
+  %let dsid    = %sysfunc(open(&ds.,IN));
+  %let v_cnt   = %sysfunc(attrn(&dsid,nobs));
+  %let rc      = %sysfunc(close(&dsid));
+ 
+%mend nobs;
+%nobs(geolay); 
+
+%put &v_cnt;
+
+**************************************************;
+* Create Macro Variables SASNAME1 to SASNAMEx     ;
+* x is the total number of obs in GEOLOAY         ;
+* ex. SASNAME1 is POP1, SASNAME2 is POP2          ;
+* Create Macro Variables MOD1 to MODx             ;
+* ex. MOD1 is P0020002, MOD2 is P0020002          ;
+* Create Macro Variables LABEL1 to LABELx         ;
+**************************************************;
+
+proc sql;
+  select sasname into :varnm1 - :varnm&v_cnt from geolay;
+  select mod     into :mod1   - :mod&v_cnt   from geolay;
+  select label   into :label1 - :label&v_cnt from geolay;
+  quit;
+run;
+
+%do j=1 %to &totstates;
+
+
+**************************************************;
+* Using MACRO Variables created previously use    ;
+* those to read in data from the file below       ;
+* The Macro Variables allow the code to be driven ;
+* by data in the reference files using dynamic    ;
+* code versus hard-coded SAS Programming          ;
+**************************************************;
+
+   data geo_&&geost&j;
+     infile "&in_path.&&geost&j..geo2010.txt" lrecl = 500 missover pad;
+     INPUT %do r = 1 %to &nobs;
+	          @ &&spot&r   &&name&r   &&type&r
+		   %end;;
+   run;
+
+   proc sort tagsort;
+     by logrecno;
+   run;
+
+  %do R = 1 %to &segcnt;
+     
+     data seg (rename=(newcell=cell));
+	   length newcell $8.;
+	   set censuslay;
+	   if segment = "&&seg&r";
+	   newcell = 'cell'||compress(cell);
+	   drop cell;
+	 run;
+
+**************************************************;
+* Datastep gets total number of observations from ;
+* SEG Dataset                                     ;
+**************************************************;
+
+     %macro nobs(ds);
+
+       %let dsid    = %sysfunc(open(&ds.,IN));
+       %let cnt     = %sysfunc(attrn(&dsid,nobs));
+       %let rc      = %sysfunc(close(&dsid));
+ 
+     %mend nobs;
+     %nobs(seg);  
+
+	 %put &cnt;
+
+**************************************************;
+* Save the values of variables created in SEG to  ;
+* MACRO Variables                                 ;
+**************************************************;
+
+	 proc sql;
+	    select cell into :cell1 - :cell&cnt     from seg where segment = "&&seg&r";
+		select label into :lab1 - :lab&cnt      from seg where segment = "&&seg&r";
+		select sasname into :sas1 - :sas&cnt    from seg where segment = "&&seg&r";
+		select distinct numcells into :numcells from seg where segment = "&&seg&r";
+		quit;
+	 run;
+
+**************************************************;
+* What we are doing here is reading a text file   ;
+* using dynamic macro variables created in the    ;
+* steps above                                     ;
+**************************************************;
+
+     data &&geost&j.._seg&r;
+        infile "&in_path.&&geost&j..000&&seg&r..&year..txt" dsd dlm=',' missover;
+		input fileid $ stusab $ chariter $ cifsn $ logrecno 
+		      %do m = 1 %to &numcells;
+			      cell&m 
+			  %end;;
+        %do t = 1 %to &cnt;
+		    &&sas&t = &&cell&t;
+        %end;
+        label
+        %do p = 1 %to &cnt;
+		    &&sas&p = "&&lab&p"
+        %end;;
+		keep logrecno %do n = 1 %to &cnt; 
+		                  &&sas&n
+					  %end;;
+     run;
+
+     proc sort tagsort;
+        by logrecno;
+     run;
+
+  %end;     
+
+**************************************************;
+* Merge all the datasets together by logrecno     ;
+* The number of datasets merged will be the count ;
+* of all the unique SEGMENT from CENSUSLAYOUT     ;
+**************************************************;
+
+  data seg_&&geost&j;
+     merge %do e = 1 %to &segcnt;
+	          &&geost&j.._seg&e
+           %end;;
+	 by logrecno;
+  run;
+     
+%end;
+
+**************************************************;
+* Combine all the STATE Data by each STATE        ;
+**************************************************;
+
+%do x = 1 %to &totstates;
+
+     data &&geost&x;
+	   length geoid10 $ 12. areakey $ 13.;
+	   merge geo_&&geost&x (in=a) seg_&&geost&x (in=b);
+	   by logrecno;
+       if not (a and b) then do;  
+          if not a then put 'Logrecno is not in geo   at line ' _n_;
+          if not b then put 'Logrecno is not in census at line ' _n_;
+       end;
+       geoid10=state||county||tract||blkgrp;
+       if blkgrp ne '' and block eq '' and sumlev eq '150'; 
+       if index (name,'part') gt 1 then delete;
+	   areakey='x'||geoid10;
+	 run;
+
+**************************************************;
+* APPEND all the DATA to US_BG2010 which will have;
+* all states included                             ;
+**************************************************;
+
+	 proc append base=us_bg2010 data=&&geost&x;
+	 run;
+
+%end;
+
+**************************************************;
+* This is a permanent SAS Dataset that has all    ;
+* states included                                 ;
+**************************************************;
+
+data out.us_bg2010;
+  length fips $5;
+  set us_bg2010;
+  fips=cats(state,county);
+run;
+
+proc sort data=out.us_bg2010 tagsort;
+  by areakey;
+run;
+
+**************************************************;
+* READ in all the 10 GEO FILES                    ;
+**************************************************;
+
+%do a=1 %to 10;
+
+    %if &a = 9 %then %do;
+     
+	   data &&geo&a;
+         format fipsn $5.;
+	 	 informat bg_area bg_area_total comma15.;
+         infile "&geo_path.&&geo&a...csv" dsd firstobs=2;
+         input &&geo_in&a;
+		 state                = put(statecd,z2.);
+		 cnty                 = put(countycd,z3.);
+	     fipsn                = left(trim(compress(state)))||left(trim(compress(cnty)));
+		 pr                   = bg_area/bg_area_total;
+	     year                 = %eval(2000+&y);
+		 geoidz               = put(geoid,z12.);
+		 areakey              = 'x'||geoidz;
+		 keep year areakey pr &&geovar&a;
+       run;
+
+	%end;
+	%else %do;
+
+       data &&geo&a;
+         format fipsn $5.;
+         infile "&geo_path.&&geo&a...csv" dsd firstobs=2;
+         input &&geo_in&a;
+	     fipsn                = put(fips,z5.);
+	     pr                   = bg_area/bg_area_total;
+	     year                 = %eval(2000+&y);
+		 geoidz               = put(geoid,z12.);
+		 areakey              = 'x'||geoidz;
+		 yearrange            = "&yrange";
+		 keep year areakey pr &&geovar&a;
+       run;
+
+    %end;
+ 
+%end;
+
+**************************************************;
+* MERGE THE Datasets                              ;
+**************************************************;
+
+%do k=1 %to 10;
+
+    proc sort data=&&geo&k tagsort;
+      by areakey;
+    run;
+
+**************************************************;
+* MERGE THE 10 GEO Datasets and the Census Dataset;                              ;
+**************************************************;
+
+    data &&geo&k;
+      merge &&geo&k (in=i) out.us_bg2010;
+      by areakey;
+      if i;
+	  array _x(*) _numeric_;
+	  do k = 1 to dim(_x);
+	     if _x(k) = . then _x(k) = 0;
+	  end;
+	  %do b = 1 %to &p_cnt;
+	     &&sasnm&b = &&sasnm&b * pr;
+	  %end;
+	run;
+
+    proc sort data=&&geo&k;
+      by &&geovar&k year;
+    run;
+
+**************************************************;
+* Sum up numeric analysis variables by GEO VARS YR;
+**************************************************;
+
+    proc summary data=&&geo&k nway missing;
+      by &&geovar&k year;
+      var %do u = 1 %to &p_cnt;
+	          &&sasnm&u
+		  %end;;
+      output out=&&geo&k (drop=_type_ _freq_) sum=;
+    run;
+
+**************************************************;
+* Round values and apply labeling to variables    ;
+**************************************************;
+
+    data &&geo&k;
+	  retain &&geovar&k %do p = 1 %to &v_cnt;
+	                        &&varnm&p
+						%end;;
+      set &&geo&k;
+      %do c = 1 %to &p_cnt;
+	     &&sasnm&c = round(&&sasnm&c);
+	  %end;
+	  %do f = 1 %to &v_cnt;
+	     &&varnm&f = &&mod&f;
+	  %end;
+	  label
+	  %do g = 1 %to &v_cnt;
+	         &&varnm&g = "&&label&g"
+      %end;;
+	  keep &&geovar&k year %do d = 1 %to &v_cnt;
+	                          &&varnm&d
+					       %end;;
+    run;
+
+	proc sort;
+	  by &&geovar&k year;
+	run;
+
+**************************************************;
+* The output datasets are sent to ODS output which;
+* in this case is a CSV file below                ;
+**************************************************;
+
+	ods csv file="&rpt_path.Demographic_Trends_&&geo&k...csv" style=printer;
+
+    proc print data=&&geo&k split='*' noobs;
+    run;
+
+    ods csv close;
+
+
+%end;
+
+******************  Shoreline County *************;
+**************************************************;
+* Read in Shoreline reference file                ;
+**************************************************;
+
+data shoreline (rename=(fipsn=fips));
+  length state_abbr $2 countyname $65;
+  format fipsn $5.;
+  infile "&geo_path.Coastal_Shoreline_Geo_Reference.csv" dlm=',' dsd firstobs=2;
+  input fips county :$200. state_fips county_fips st_abbr :$200. statename :$200. region :$200. shoreline_cnty;
+  fipsn                = put(fips,z5.);
+  drop fips region shoreline_cnty statename st_abbr county;
+  state_abbr = compress(st_abbr);
+  countyname = trim(county);
+run;
+
+proc sort;
+  by fips;
+run;
+
+proc sort data=out.us_bg2010;
+  by fips;
+run;
+
+**************************************************;
+* Merge Cenus data with Shoreline reference file  ;
+**************************************************;
+
+data shore_bg;
+  merge shoreline (in=a) out.us_bg2010;
+  by fips;
+  if a;
+  array _x(*) _numeric_;
+  do k = 1 to dim(_x);
+     if _x(k) = . then _x(k) = 0;
+  end;
+run;
+
+proc sort data=shore_bg;
+  by countyname state_abbr fips state_fips;
+run;
+
+**************************************************;
+* Sum up numeric analysis variables by GEO VARS   ;
+**************************************************;
+
+proc summary data=shore_bg nway missing;
+  by countyname state_abbr fips state_fips;
+  var %do u = 1 %to &p_cnt;
+          &&sasnm&u
+      %end;;
+  output out=shore_bg (drop=_type_ _freq_) sum=;
+run;
+
+**************************************************;
+* Label the variables and define which variables  ;
+* to keep                                         ;
+**************************************************;
+
+data shore_bg;
+  retain countyname state_abbr fips state_fips
+            %do p = 1 %to &v_cnt;
+	            &&varnm&p
+			%end;;
+  set shore_bg;
+  %do f = 1 %to &v_cnt;
+     &&varnm&f = &&mod&f;
+  %end;
+  label
+  %do g = 1 %to &v_cnt;
+         &&varnm&g = "&&label&g"
+  %end;;
+  keep countyname state_abbr fips state_fips
+            %do d = 1 %to &v_cnt;
+	            &&varnm&d
+			%end;;
+run;
+
+proc sort;
+  by fips;
+run;
+
+**************************************************;
+* Output to a CSV output file for Shoreline       ;
+**************************************************;
+
+ods csv file="&rpt_path.Shoreline_County_Report.csv" style=printer;
+
+proc print data=shore_bg split='*' noobs;
+run;
+
+ods csv close;
+
+
+******************  Shoreline State **************;
+**************************************************;
+* Sum up numeric analysis variables by STATE      ;
+**************************************************;
+
+proc summary data=shore_bg nway missing;
+  class state_abbr;
+  var %do a = 1 %to &v_cnt;
+         &&varnm&a
+	  %end;;
+  output out=shore_bg_state (drop=_freq_ _type_) sum=;
+run;
+
+******************  Shoreline State **************;
+**************************************************;
+* The RETAIN Statement defines the order of how   ;
+* the CSV output will be produced                 ;
+**************************************************;
+
+data shore_bg_state;
+  retain state_abbr %do x = 1 %to &v_cnt;
+                       &&varnm&x
+					%end;;
+  set shore_bg_state;
+run;
+
+proc sort data=shore_bg_state;
+  by state_abbr;
+run;
+
+**************************************************;
+* Output to a CSV output file for Shoreline STATE ;
+**************************************************;
+
+ods csv file="&rpt_path.Shoreline_State_Report.csv" style=printer;
+
+proc print data=shore_bg_state split='*' noobs;
+run;
+
+ods csv close;
+
+****************** Shoreline National ************;
+**************************************************;
+* Sum up numeric analysis variables by NATIONAL   ;
+**************************************************;
+
+proc summary data=shore_bg nway missing;
+  var %do a = 1 %to &v_cnt;
+         &&varnm&a
+	  %end;;
+  output out=shore_bg_natl (drop=_freq_ _type_) sum=;
+run;
+
+******************  Shoreline National  **********;
+**************************************************;
+* The RETAIN Statement defines the order of how   ;
+* the CSV output will be produced                 ;
+**************************************************;
+
+data shore_bg_natl;
+  retain geo_ref %do x = 1 %to &v_cnt;
+                       &&varnm&x
+				 %end;;
+  set shore_bg_natl;
+  geo_ref='National';
+run;
+
+**************************************************;
+* Output to a CSV output file for Shoreline STATE ;
+**************************************************;
+
+ods csv file="&rpt_path.Shoreline_National_Report.csv" style=printer;
+
+proc print data=shore_bg_natl split='*' noobs;
+run;
+
+ods csv close;
+
+*****  WATERSHED COUNTIES  ***********************;
+**************************************************;
+* Read in Watershed reference file                ;
+**************************************************;
+
+data ws (rename=(fipsn=fips));
+  length state_abbr $2 countyname $65;
+  format fipsn $5.;
+  infile "&geo_path.Coastal_Economy_Watershed_Counties.csv" dlm=',' dsd firstobs=2;
+  input fips county :$200. state_fips county_fips st_abbr :$200. county_state :$200.;
+  fipsn                = put(fips,z5.);
+  keep state_abbr county_state fipsn;
+  state_abbr = compress(st_abbr);
+  countyname = trim(county);
+run;
+
+proc sort;
+  by fips;
+run;
+
+proc sort data=out.us_bg2010;
+  by fips;
+run;
+
+**************************************************;
+* Merge Watershed with Census Dataset             ;
+**************************************************;
+
+data ws_bg;
+  merge ws (in=a) out.us_bg2010;
+  by fips;
+  if a;
+  array _x(*) _numeric_;
+  do k = 1 to dim(_x);
+     if _x(k) = . then _x(k) = 0;
+  end;
+run;
+
+proc sort data=ws_bg;
+  by fips county_state state_abbr;
+run;
+
+****************** Watershed County **************;
+**************************************************;
+* Sum up numeric analysis variables by County data;
+**************************************************;
+
+proc summary data=ws_bg nway missing;
+  by fips county_state state_abbr;
+  var %do u = 1 %to &p_cnt;
+          &&sasnm&u
+      %end;;
+  output out=ws_bg (drop=_type_ _freq_) sum=;
+run;
+
+******************  Watershed County  ************;
+**************************************************;
+* The RETAIN Statement defines the order of how   ;
+* the CSV output will be produced                 ;
+**************************************************;
+
+data ws_bg;
+  retain fips county_state state_abbr
+            %do p = 1 %to &v_cnt;
+	            &&varnm&p
+			%end;;
+  set ws_bg;
+  %do f = 1 %to &v_cnt;
+     &&varnm&f = &&mod&f;
+  %end;
+  label
+  %do g = 1 %to &v_cnt;
+         &&varnm&g = "&&label&g"
+  %end;;
+  keep fips county_state state_abbr
+            %do d = 1 %to &v_cnt;
+	            &&varnm&d
+			%end;;
+run;
+
+proc sort;
+  by fips;
+run;
+
+**************************************************;
+* Output to a CSV output file for Watershed County;
+**************************************************;
+
+ods csv file="&rpt_path.Watershed_County_Report.csv" style=printer;
+
+proc print data=ws_bg split='*' noobs;
+run;
+
+ods csv close;
+
+
+******************  Watershed State **************;
+**************************************************;
+* Sum up numeric analysis variables by State data ;
+**************************************************;
+
+proc summary data=ws_bg nway missing;
+  class state_abbr;
+  var %do a = 1 %to &v_cnt;
+         &&varnm&a
+	  %end;;
+  output out=ws_bg_state (drop=_freq_ _type_) sum=;
+run;
+
+******************  Watershed State  *************;
+**************************************************;
+* The RETAIN Statement defines the order of how   ;
+* the CSV output will be produced                 ;
+**************************************************;
+
+data ws_bg_state;
+  retain state_abbr %do x = 1 %to &v_cnt;
+                       &&varnm&x
+					%end;;
+  set ws_bg_state;
+run;
+
+proc sort data=ws_bg_state;
+  by state_abbr;
+run;
+
+**************************************************;
+* Output to a CSV output file for Watershed State ;
+**************************************************;
+
+ods csv file="&rpt_path.Watershed_State_Report.csv" style=printer;
+
+proc print data=ws_bg_state split='*' noobs;
+run;
+
+ods csv close;
+
+****************** Watershed National ************;
+**************************************************;
+* Sum up numeric analysis variables by National   ;
+**************************************************;
+
+proc summary data=ws_bg nway missing;
+  var %do a = 1 %to &v_cnt;
+         &&varnm&a
+	  %end;;
+  output out=ws_bg_natl (drop=_freq_ _type_) sum=;
+run;
+
+******************  Watershed National  **********;
+**************************************************;
+* The RETAIN Statement defines the order of how   ;
+* the CSV output will be produced                 ;
+**************************************************;
+
+data ws_bg_natl;
+  retain geo_ref %do x = 1 %to &v_cnt;
+                       &&varnm&x
+					%end;;
+  set ws_bg_natl;
+  geo_ref='National';
+run;
+
+****************************************************;
+* Output to a CSV output file for Watershed National;
+****************************************************;
+
+ods csv file="&rpt_path.Watershed_National_Report.csv" style=printer;
+
+proc print data=ws_bg_natl split='*' noobs;
+run;
+
+ods csv close;
+
+*****************  All County File ******************;
+
+proc sort data=out.us_bg2010;
+  by fips;
+run;
+
+data county_bg;
+  set out.us_bg2010;
+  by fips;
+  array _x(*) _numeric_;
+  do k = 1 to dim(_x);
+     if _x(k) = . then _x(k) = 0;
+  end;
+run;
+
+****************** All Counties ******************;
+**************************************************;
+* Sum up numeric analysis variables by County     ;
+**************************************************;
+
+proc summary data=county_bg nway missing;
+  by fips;
+  var %do u = 1 %to &p_cnt;
+          &&sasnm&u
+      %end;;
+  output out=county_bg (drop=_type_ _freq_) sum=;
+run;
+
+******************  All Counties  ****************;
+**************************************************;
+* The RETAIN Statement defines the order of how   ;
+* the CSV output will be produced                 ;
+**************************************************;
+
+data county_bg;
+  retain fips
+            %do p = 1 %to &v_cnt;
+	            &&varnm&p
+			%end;;
+  set county_bg;
+  %do f = 1 %to &v_cnt;
+     &&varnm&f = &&mod&f;
+  %end;
+  label
+  %do g = 1 %to &v_cnt;
+         &&varnm&g = "&&label&g"
+  %end;;
+  keep fips
+            %do d = 1 %to &v_cnt;
+	            &&varnm&d
+			%end;;
+run;
+
+proc sort;
+  by fips;
+run;
+
+****************************************************;
+* Output to a CSV output file for All Counties      ;
+****************************************************;
+
+ods csv file="&rpt_path.All_County_Report.csv" style=printer;
+
+proc print data=county_bg split='*' noobs;
+run;
+
+ods csv close;
+
+
+*******************************************  All States File ******************************************;
+
+
+data state_bg;
+  set out.us_bg2010;
+  array _x(*) _numeric_;
+  do k = 1 to dim(_x);
+     if _x(k) = . then _x(k) = 0;
+  end;
+run;
+
+proc sort data=state_bg;
+  by stusab;
+run;
+
+proc summary data=state_bg nway missing;
+  by stusab;
+  var %do u = 1 %to &p_cnt;
+          &&sasnm&u
+      %end;;
+  output out=state_bg (drop=_type_ _freq_) sum=;
+run;
+
+******************  All States  ******************;
+**************************************************;
+* The RETAIN Statement defines the order of how   ;
+* the CSV output will be produced                 ;
+**************************************************;
+
+data state_bg;
+  retain stusab
+            %do p = 1 %to &v_cnt;
+	            &&varnm&p
+			%end;;
+  set state_bg;
+  %do f = 1 %to &v_cnt;
+     &&varnm&f = &&mod&f;
+  %end;
+  label
+  %do g = 1 %to &v_cnt;
+         &&varnm&g = "&&label&g"
+  %end;;
+  keep stusab
+            %do d = 1 %to &v_cnt;
+	            &&varnm&d
+			%end;;
+run;
+
+proc sort;
+  by stusab;
+run;
+
+****************************************************;
+* Output to a CSV output file for All States        ;
+****************************************************;
+
+ods csv file="&rpt_path.All_State_Report.csv" style=printer;
+
+proc print data=state_bg split='*' noobs;
+run;
+
+ods csv close;
+
+
+%mend rdcensus;
+%rdcensus;
+
