@@ -1,2 +1,2 @@
 # SASCode
-Everything related to SAS and SAS Development Coding
+SAS Code from various Contracts/Projects.
