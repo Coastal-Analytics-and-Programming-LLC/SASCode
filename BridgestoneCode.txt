@@ -1,0 +1,305 @@
+options symbolgen mprint mlogic;
+
+libname outdata "C:\Bridgestone\Josh\SAS Output";
+libname mapping "C:\Bridgestone\Josh\SAS Reference Files";
+%let rptdir = C:\Bridgestone\Josh\Reports\;
+%let in_path = C:\Bridgestone\Josh\Received;
+
+%macro cum1(var=);
+      
+%do m=1 %to 12;
+
+   %if &m = 1 %then %do;
+      CUM&m._&var = &var;
+   %end;
+
+   %else %if &m = 2 %then %do;
+      CUM&m._&var = &var + lag1(&var);
+   %end;
+
+   %else %do; 
+	  CUM&m._&var =  &var +
+                    %do s = 1 %to %eval(&m-2);
+				        lag&s(&var) + 
+					%end;
+                    %do t = %eval(&m-1) %to %eval(&m-1);
+					    lag&t(&var);
+                    %end;
+   %end;
+
+%end;
+
+%do a=3 %to 12;
+
+   MOAVG&a._&var = CUM&a._&var / &a;
+   
+%end;
+
+%mend cum1;
+
+proc summary data=outdata.allweeks nway missing;
+  class date ym vendor category;
+  where category ne 'UNKNOWN';
+  var cost qtysold;
+  output out=sumdata (drop=_freq_ _type_) sum=;
+run;
+
+proc sql;
+  create table dates as select distinct date from outdata.allweeks;
+  create table vend  as select distinct vendor from outdata.allweeks;
+  create table cat   as select distinct category from outdata.allweeks where category ne 'UNKNOWN';
+  quit;
+run;
+
+proc sort data=dates;
+  by descending date;
+run;
+
+proc sort data=vend;
+  by vendor;
+  where vendor ne 'Other';
+run;
+
+data _null_;
+  if 0 then set dates nobs=n;
+  call symputx('dtcnt',n);
+  stop;
+run;
+
+data _null_;
+  if 0 then set vend nobs=n;
+  call symputx('vcnt',n);
+  stop;
+run;
+
+data _null_;
+  if 0 then set cat nobs=n;
+  call symputx('catcnt',n);
+  stop;
+run;
+
+proc sql;
+  select date     into :date1 - :date&dtcnt from dates;
+  select vendor   into :ven1  - :ven&vcnt   from vend;
+  select category into :cat1  - :cat&catcnt from cat;
+  quit;
+run;
+
+%macro stats(var=avgtotcost);
+
+%do j=1 %to 6;
+
+   %do k=1 %to 15;
+
+      proc sort data=sumdata out=sum&j._&k;
+	     where vendor = "&&ven&j" and category = "&&cat&k";
+		 by date;
+      run;
+
+      data sum&j._&k;
+         set sum&j._&k;
+		 avgtotcost = cost / qtysold;
+		 %cum1(var=&var);
+      run; 
+
+   %end;
+
+%end;
+
+data plots;
+   set %do x = 1 %to 6;
+           %do b = 1 %to 15;
+		        sum&x._&b
+		   %end;
+	   %end;;
+run;
+
+ods pdf file="C:\Bridgestone\Josh\Reports\12 Month Moving Averge of Avg Cost Per Unit Trend.pdf";
+
+%do h = 1 %to 15;
+   
+    proc sort data=plots out=plots_;
+	   where category = "&&cat&h" and MOAVG12_&var ne .;
+	   by date vendor;
+	run;
+
+    proc sgpanel data=plots_;
+	   where category = "&&cat&h" and MOAVG12_&var ne .;
+	   panelby vendor / layout = panel rows = 3 columns = 2;
+	   series x = date y = MOAVG3_&var  / legendlabel = ' 3 Week MOAVG';
+	   series x = date y = MOAVG6_&var  / legendlabel = ' 6 Week MOAVG'; 
+	   series x = date y = MOAVG9_&var  / legendlabel = ' 9 Week MOAVG';
+	   series x = date y = MOAVG12_&var / legendlabel = '12 Week MOAVG';
+	   series x = date y = avgtotcost   / legendlabel = 'Average Total Cost';
+	   rowaxis label = ' ';
+	   title "Moving Average Plots of Average Total Cost - Comparison by Week for &&cat&h";
+    run;
+
+%end;
+
+ods pdf close;
+
+%mend stats;
+%stats (var=avgtotcost);
+
+
+data report;
+  set sumdata;
+  if date >= &date12 and qtysold > 0 and cost > 0;
+  if date =  &date1  then lw_avgunitcost  = cost / qtysold;
+  if date >= &date12 then l12_avgunitcost = cost / qtysold;
+run;
+
+%macro rpt1;
+
+%do s=1 %to &vcnt;
+
+  proc summary data=report nway missing;
+    where vendor = "&&ven&s" and category not in ('UNKNOWN','');
+    class category;
+    var lw_avgunitcost l12_avgunitcost;
+    output out=report&s (drop=_freq_ _type_) mean=lw_&s l12_&s;
+  run;
+
+  proc sort data=report&s;
+    by category;
+  run;
+ 
+%end;
+
+data rptfinal;
+  merge %do r=1 %to &vcnt;  
+          report&r
+		%end;;
+  by category;
+run;
+
+ods csv file="C:\Bridgestone\Josh\Reports\Weekly Supplier Report by Category.csv" style=printer;
+
+proc report data=rptfinal split='/';
+  columns category %do x=1 %to &vcnt;
+                     ("&&ven&x" lw_&x l12_&x)
+				   %end;;
+  define category / display 'CATEGORY';
+  %do y=1 %to &vcnt;
+     define lw_&y   / display 'Last Week Average Unit Cost';
+	 define l12_&y  / display 'Last 12 Weeks Average Unit Cost';
+  %end;
+run;
+
+ods csv close;
+
+data report;
+  set outdata.allweeks;
+  if qtysold > 0 and newpartdescription ne '#NAME?';
+  avgunitcost =  cost /  qtysold;
+  if avgunitcost > 0 and vendor ne 'Other';
+run;
+
+proc summary data=report nway missing;
+  class vendor date;
+  var avgunitcost;
+  output out=rpt1 (drop=_freq_ _type_) mean=;
+run;
+
+ods pdf file="C:\Bridgestone\Josh\Reports\Weekly Avg Cost Per Unit Trend.pdf";
+
+PROC SGPLOT DATA = rpt1;
+  SERIES X = date Y = avgunitcost / Group = vendor markers;
+  title 'Series Plot Vendor Average Unit Cost Total by Week';
+RUN; 
+
+ods pdf close;
+
+proc sort data=outdata.allweeks nodupkey out=data1;
+  by date vendor partnumber descending cost;
+  where vendor ne 'Other' and qtysold > 0;
+run;
+
+proc sort data=data1;
+  by date vendor descending cost;
+run;
+
+data report;
+  set data1;
+  by date vendor descending cost;
+  if first.vendor then cnt=0;
+  cnt + 1;
+  if cnt le 100;
+  avgunitcost = cost / qtysold;
+run;
+
+proc summary data=report nway missing;
+   class vendor date;
+   var avgunitcost;
+   output out=_temp2 (drop=_freq_ _type_) mean=;
+run;
+
+ods pdf file="C:\Bridgestone\Josh\Reports\Weekly Avg Cost Per Unit Trend.pdf";
+
+PROC SGPLOT DATA = _temp2;
+  SERIES X = date Y = avgunitcost / group = vendor markers;
+  title 'Series Plot Vendor Average Unit Cost Total by Week - Of Top 100 Parts by Cost';
+RUN; 
+
+
+ods pdf close;
+
+
+
+%do j = 1 %to &vcnt;
+
+proc sort data=report out=_temp;
+   where vendor = "&&ven&j";
+   by date cnt;
+run;
+
+
+ods listing close;
+ods tagsets.excelxp file="C:\Bridgestone\Josh\Reports\Weekly Avg Cost Per Unit Top 100 by Week - Vendor = &&ven&j...xml"
+options(embedded_titles    = 'yes'
+        frozen_headers     = '3'
+        orientation        = 'Landscape' 
+        page_order_across  = 'Yes'
+        suppress_bylines   = 'Yes'
+        sheet_interval     = 'bygroup'
+        autofit_height     = 'Yes'
+        pages_fitwidth     = '1'
+        pages_fitheight    = '9'
+        FitToPage          = "yes"
+        sheet_label        = ' '
+        pagebreaks         = 'yes'
+        doc                = 'no'
+        row_repeat         = '1-2'
+        autofilter         = 'NONE'
+ )
+ style=styles.sansprinter ;
+
+title "TOP 100 Cost of Goods by Week for &&ven&j";
+proc report data=_temp nowindows split='*'
+style(header) = {background=cx99ccff 
+		just=center foreground=black font_size = 8pt font_weight = bold} style(column) = {font_size = 8pt};
+by date;
+column vendor date category partnumber newpartdescription cost qtysold avgunitcost sellamt;
+ ;
+
+define vendor              / display 'VENDOR'               style(column)=[just=c cellwidth= 1.5in];
+define date                / display 'DATE'                 style(column)=[just=c cellwidth= 1.5in];
+define category            / display 'CATEGORY'             style(column)=[just=c cellwidth= 1.5in];
+define partnumber          / display 'Part*Number'          style(column)=[just=c cellwidth= 1.5in];
+define newpartdescription  / display 'Part Description'     style(column)=[just=c cellwidth= 3.0in];
+define cost                / display 'COST'                 style(column)=[just=c cellwidth= 1.5in];
+define qtysold             / display 'Quantity*Sold'        style(column)=[just=c cellwidth= 1.5in];
+define avgunitcost         / display 'Average*Unit*Cost'    style(column)=[just=c cellwidth= 1.5in];
+define sellamt             / display 'Sell*Amount'          style(column)=[just=c cellwidth= 1.5in];
+run;
+
+
+%end; 
+
+
+%mend rpt1;
+%rpt1;
+
+
+
